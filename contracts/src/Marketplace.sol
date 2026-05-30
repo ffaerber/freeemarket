@@ -12,12 +12,17 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  *
  *  - Any address can register a shop and list items (e.g. a freeze-dried
  *    fruit shop with separate listings for 10g / 100g strawberries, etc.).
- *  - Each shop publishes an ECIES encryption public key. Buyers encrypt
- *    their shipping address to that key CLIENT-SIDE, upload the ciphertext
- *    to Swarm, and pass only the Swarm reference on-chain. No plaintext
- *    address ever touches the public chain.
  *  - Payment is held in escrow until the buyer confirms receipt (or a
  *    timeout elapses). Either party can open a dispute for the arbiter.
+ *
+ *  This contract is pure escrow + listings. Encrypted shipping addresses and
+ *  seller encryption keys are deliberately kept OFF-CHAIN (CLAUDE.md §5):
+ *  sellers publish their ECIES key via SwarmChat's ContactRegistry, and buyers
+ *  send their address as an ECIES-encrypted PSS message — stamped with a
+ *  short-lived Swarm postage batch so the ciphertext self-expires after
+ *  fulfillment. The seller correlates an incoming address to an order via the
+ *  on-chain `OrderFunded(orderId, …, buyer, …)` event. No address, and no
+ *  pointer to one, ever touches the public chain.
  *
  * @dev USDC has 6 decimals: a price of 10 USDC == 10_000_000. Buyers must
  *      `approve` this contract for the price before calling `buy`. The USDC
@@ -38,8 +43,7 @@ contract Marketplace is ReentrancyGuard, Ownable {
 
     struct Shop {
         bool registered;
-        bytes32 metadata;       // Swarm ref: shop name, banner, description
-        bytes encryptionPubKey; // seller's ECIES public key; buyers encrypt shipping info to this
+        bytes32 metadata; // Swarm ref: shop name, banner, description
     }
 
     struct Listing {
@@ -54,7 +58,6 @@ contract Marketplace is ReentrancyGuard, Ownable {
         address buyer;
         address seller;
         uint256 amount;
-        bytes32 shippingRef; // Swarm ref to the buyer's ECIES-encrypted shipping address
         uint64  fundedAt;
         OrderState state;
     }
@@ -73,8 +76,7 @@ contract Marketplace is ReentrancyGuard, Ownable {
         uint256 indexed listingId,
         address indexed buyer,
         address seller,
-        uint256 amount,
-        bytes32 shippingRef
+        uint256 amount
     );
     event OrderCompleted(uint256 indexed orderId, uint256 payout, uint256 fee);
     event OrderRefunded(uint256 indexed orderId, uint256 amount);
@@ -90,20 +92,14 @@ contract Marketplace is ReentrancyGuard, Ownable {
 
     // --- Shops ---
 
-    /// @notice Register (or update) your shop. encryptionPubKey is the public
-    ///         key buyers will encrypt their shipping address to.
-    function registerShop(bytes32 metadata, bytes calldata encryptionPubKey) external {
-        require(encryptionPubKey.length >= 33, "bad key"); // 33B compressed / 65B uncompressed secp256k1
+    /// @notice Register (or update) your shop. `metadata` is a Swarm ref to the
+    ///         shop profile. Seller encryption keys live off-chain in SwarmChat's
+    ///         ContactRegistry (CLAUDE.md §5), not here.
+    function registerShop(bytes32 metadata) external {
         Shop storage s = shops[msg.sender];
         s.registered = true;
         s.metadata = metadata;
-        s.encryptionPubKey = encryptionPubKey;
         emit ShopRegistered(msg.sender, metadata);
-    }
-
-    /// @notice Explicit getter; the auto-generated mapping getter omits `bytes`.
-    function shopEncryptionKey(address seller) external view returns (bytes memory) {
-        return shops[seller].encryptionPubKey;
     }
 
     // --- Listings ---
@@ -128,9 +124,11 @@ contract Marketplace is ReentrancyGuard, Ownable {
 
     // --- Buying / escrow ---
 
-    /// @notice Buyer must `approve` this contract for `price` USDC first.
-    /// @param shippingRef Swarm reference to the buyer's encrypted shipping address.
-    function buy(uint256 listingId, bytes32 shippingRef)
+    /// @notice Buyer must `approve` this contract for `price` USDC first. The
+    ///         encrypted shipping address is delivered to the seller off-chain
+    ///         over PSS once the order is funded (CLAUDE.md §5), keyed by the
+    ///         emitted `orderId`.
+    function buy(uint256 listingId)
         external
         nonReentrant
         returns (uint256 orderId)
@@ -145,13 +143,12 @@ contract Marketplace is ReentrancyGuard, Ownable {
             buyer: msg.sender,
             seller: l.seller,
             amount: l.price,
-            shippingRef: shippingRef,
             fundedAt: uint64(block.timestamp),
             state: OrderState.Funded
         });
 
         usdc.safeTransferFrom(msg.sender, address(this), l.price);
-        emit OrderFunded(orderId, listingId, msg.sender, l.seller, l.price, shippingRef);
+        emit OrderFunded(orderId, listingId, msg.sender, l.seller, l.price);
     }
 
     /// @notice Buyer releases escrow to the seller after receiving the item.

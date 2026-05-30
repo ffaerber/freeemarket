@@ -20,11 +20,6 @@ contract MarketplaceFuzzTest is Test {
         market = new Marketplace(address(usdc), owner);
     }
 
-    function _pubKey() internal pure returns (bytes memory k) {
-        k = new bytes(33);
-        k[0] = 0x02;
-    }
-
     /// Payout + fee must always exactly equal the escrowed amount, and the fee
     /// must never exceed the configured rate, for any price/fee combination.
     function testFuzz_feeConservation(uint256 price, uint16 feeBps) public {
@@ -35,14 +30,14 @@ contract MarketplaceFuzzTest is Test {
         market.setFeeBps(feeBps);
 
         vm.prank(seller);
-        market.registerShop(META, _pubKey());
+        market.registerShop(META);
         vm.prank(seller);
         uint256 id = market.createListing(price, META);
 
         usdc.mint(buyer, price);
         vm.startPrank(buyer);
         usdc.approve(address(market), price);
-        uint256 orderId = market.buy(id, META);
+        uint256 orderId = market.buy(id);
         vm.stopPrank();
 
         vm.prank(buyer);
@@ -66,14 +61,14 @@ contract MarketplaceFuzzTest is Test {
         market.setAutoReleasePeriod(period);
 
         vm.prank(seller);
-        market.registerShop(META, _pubKey());
+        market.registerShop(META);
         vm.prank(seller);
         uint256 id = market.createListing(1_000_000, META);
 
         usdc.mint(buyer, 1_000_000);
         vm.startPrank(buyer);
         usdc.approve(address(market), 1_000_000);
-        uint256 orderId = market.buy(id, META);
+        uint256 orderId = market.buy(id);
         vm.stopPrank();
 
         uint256 start = block.timestamp;
