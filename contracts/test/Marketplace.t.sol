@@ -20,7 +20,6 @@ contract MarketplaceTest is Test {
     address internal stranger = makeAddr("stranger");
 
     uint256 internal constant PRICE = 10_000_000; // 10 USDC (6 dp)
-    bytes32 internal constant SHIP_REF = bytes32(uint256(0x5417));
     bytes32 internal constant SHOP_META = bytes32(uint256(0x5409));
     bytes32 internal constant ITEM_META = bytes32(uint256(0x17e3));
 
@@ -33,8 +32,7 @@ contract MarketplaceTest is Test {
         uint256 indexed listingId,
         address indexed buyer,
         address seller,
-        uint256 amount,
-        bytes32 shippingRef
+        uint256 amount
     );
     event OrderCompleted(uint256 indexed orderId, uint256 payout, uint256 fee);
     event OrderRefunded(uint256 indexed orderId, uint256 amount);
@@ -51,14 +49,9 @@ contract MarketplaceTest is Test {
 
     // --- helpers ---
 
-    function _pubKey() internal pure returns (bytes memory k) {
-        k = new bytes(33); // 33B compressed secp256k1 key
-        k[0] = 0x02;
-    }
-
     function _registerShop() internal {
         vm.prank(seller);
-        market.registerShop(SHOP_META, _pubKey());
+        market.registerShop(SHOP_META);
     }
 
     function _listing(uint256 price) internal returns (uint256 id) {
@@ -70,7 +63,7 @@ contract MarketplaceTest is Test {
     function _fund(uint256 listingId) internal returns (uint256 orderId) {
         vm.startPrank(buyer);
         usdc.approve(address(market), PRICE);
-        orderId = market.buy(listingId, SHIP_REF);
+        orderId = market.buy(listingId);
         vm.stopPrank();
     }
 
@@ -80,33 +73,22 @@ contract MarketplaceTest is Test {
         vm.expectEmit(true, false, false, true);
         emit ShopRegistered(seller, SHOP_META);
         vm.prank(seller);
-        market.registerShop(SHOP_META, _pubKey());
+        market.registerShop(SHOP_META);
 
-        (bool registered, bytes32 metadata,) = market.shops(seller);
+        (bool registered, bytes32 metadata) = market.shops(seller);
         assertTrue(registered);
         assertEq(metadata, SHOP_META);
-        assertEq(market.shopEncryptionKey(seller), _pubKey());
-    }
-
-    function test_registerShop_revertsOnShortKey() public {
-        bytes memory shortKey = new bytes(32);
-        vm.prank(seller);
-        vm.expectRevert(bytes("bad key"));
-        market.registerShop(SHOP_META, shortKey);
     }
 
     function test_registerShop_overwritesOnReregister() public {
         _registerShop();
         bytes32 newMeta = bytes32(uint256(0xBEEF));
-        bytes memory newKey = new bytes(65); // uncompressed key (rotation)
-        newKey[0] = 0x04;
 
         vm.prank(seller);
-        market.registerShop(newMeta, newKey);
+        market.registerShop(newMeta);
 
-        (, bytes32 metadata,) = market.shops(seller);
+        (, bytes32 metadata) = market.shops(seller);
         assertEq(metadata, newMeta);
-        assertEq(market.shopEncryptionKey(seller), newKey);
     }
 
     // --- listings ---
@@ -179,8 +161,8 @@ contract MarketplaceTest is Test {
         vm.startPrank(buyer);
         usdc.approve(address(market), PRICE);
         vm.expectEmit(true, true, true, true);
-        emit OrderFunded(1, id, buyer, seller, PRICE, SHIP_REF);
-        uint256 orderId = market.buy(id, SHIP_REF);
+        emit OrderFunded(1, id, buyer, seller, PRICE);
+        uint256 orderId = market.buy(id);
         vm.stopPrank();
 
         assertEq(orderId, 1);
@@ -192,7 +174,6 @@ contract MarketplaceTest is Test {
             address oBuyer,
             address oSeller,
             uint256 amount,
-            bytes32 shippingRef,
             ,
             Marketplace.OrderState state
         ) = market.orders(orderId);
@@ -200,7 +181,6 @@ contract MarketplaceTest is Test {
         assertEq(oBuyer, buyer);
         assertEq(oSeller, seller);
         assertEq(amount, PRICE);
-        assertEq(shippingRef, SHIP_REF);
         assertEq(uint8(state), uint8(Marketplace.OrderState.Funded));
     }
 
@@ -208,7 +188,7 @@ contract MarketplaceTest is Test {
         uint256 id = _listing(PRICE);
         vm.prank(buyer);
         vm.expectRevert(); // SafeERC20 / allowance failure
-        market.buy(id, SHIP_REF);
+        market.buy(id);
     }
 
     function test_buy_revertsOnInactiveListing() public {
@@ -219,7 +199,7 @@ contract MarketplaceTest is Test {
         vm.startPrank(buyer);
         usdc.approve(address(market), PRICE);
         vm.expectRevert(bytes("inactive"));
-        market.buy(id, SHIP_REF);
+        market.buy(id);
         vm.stopPrank();
     }
 
@@ -229,7 +209,7 @@ contract MarketplaceTest is Test {
         vm.startPrank(seller);
         usdc.approve(address(market), PRICE);
         vm.expectRevert(bytes("self-buy"));
-        market.buy(id, SHIP_REF);
+        market.buy(id);
         vm.stopPrank();
     }
 
@@ -246,7 +226,7 @@ contract MarketplaceTest is Test {
 
         assertEq(usdc.balanceOf(seller), PRICE);
         assertEq(usdc.balanceOf(address(market)), 0);
-        (,,,,,, Marketplace.OrderState state) = market.orders(orderId);
+        (,,,,, Marketplace.OrderState state) = market.orders(orderId);
         assertEq(uint8(state), uint8(Marketplace.OrderState.Completed));
     }
 
@@ -311,7 +291,7 @@ contract MarketplaceTest is Test {
         emit DisputeOpened(orderId, buyer);
         vm.prank(buyer);
         market.openDispute(orderId);
-        (,,,,,, Marketplace.OrderState state) = market.orders(orderId);
+        (,,,,, Marketplace.OrderState state) = market.orders(orderId);
         assertEq(uint8(state), uint8(Marketplace.OrderState.Disputed));
     }
 
@@ -320,7 +300,7 @@ contract MarketplaceTest is Test {
         uint256 orderId = _fund(id);
         vm.prank(seller);
         market.openDispute(orderId);
-        (,,,,,, Marketplace.OrderState state) = market.orders(orderId);
+        (,,,,, Marketplace.OrderState state) = market.orders(orderId);
         assertEq(uint8(state), uint8(Marketplace.OrderState.Disputed));
     }
 
@@ -345,7 +325,7 @@ contract MarketplaceTest is Test {
 
         assertEq(usdc.balanceOf(buyer), 1_000_000_000); // made whole
         assertEq(usdc.balanceOf(address(market)), 0);
-        (,,,,,, Marketplace.OrderState state) = market.orders(orderId);
+        (,,,,, Marketplace.OrderState state) = market.orders(orderId);
         assertEq(uint8(state), uint8(Marketplace.OrderState.Refunded));
     }
 
@@ -359,7 +339,7 @@ contract MarketplaceTest is Test {
         market.resolveDispute(orderId, false);
 
         assertEq(usdc.balanceOf(seller), PRICE);
-        (,,,,,, Marketplace.OrderState state) = market.orders(orderId);
+        (,,,,, Marketplace.OrderState state) = market.orders(orderId);
         assertEq(uint8(state), uint8(Marketplace.OrderState.Completed));
     }
 
@@ -421,7 +401,7 @@ contract MarketplaceTest is Test {
         uint256 id = _listing(9_999);
         vm.startPrank(buyer);
         usdc.approve(address(market), 9_999);
-        uint256 orderId = market.buy(id, SHIP_REF);
+        uint256 orderId = market.buy(id);
         vm.stopPrank();
 
         vm.prank(buyer);
@@ -495,17 +475,17 @@ contract MarketplaceTest is Test {
         evil.mint(buyer, PRICE);
 
         vm.prank(seller);
-        m.registerShop(SHOP_META, _pubKey());
+        m.registerShop(SHOP_META);
         vm.prank(seller);
         uint256 id = m.createListing(PRICE, ITEM_META);
 
         // On the buyer's token pull, re-enter buy() again.
-        evil.arm(address(m), abi.encodeWithSelector(m.buy.selector, id, SHIP_REF));
+        evil.arm(address(m), abi.encodeWithSelector(m.buy.selector, id));
 
         vm.startPrank(buyer);
         evil.approve(address(m), type(uint256).max);
         vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
-        m.buy(id, SHIP_REF);
+        m.buy(id);
         vm.stopPrank();
     }
 
@@ -515,13 +495,13 @@ contract MarketplaceTest is Test {
 
         evil.mint(buyer, PRICE);
         vm.prank(seller);
-        m.registerShop(SHOP_META, _pubKey());
+        m.registerShop(SHOP_META);
         vm.prank(seller);
         uint256 id = m.createListing(PRICE, ITEM_META);
 
         vm.startPrank(buyer);
         evil.approve(address(m), PRICE);
-        uint256 orderId = m.buy(id, SHIP_REF);
+        uint256 orderId = m.buy(id);
         vm.stopPrank();
 
         // On the seller payout, re-enter confirmReceipt for the same order.

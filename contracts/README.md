@@ -3,8 +3,10 @@
 Foundry project for the shared `Marketplace` escrow + listings contract — the
 single source of truth for all shops on Gnosis Chain.
 
-- `src/Marketplace.sol` — built, compiles clean (~6.9KB). **Unaudited.**
-- `test/` — Foundry suite: unit, fuzz, and invariant tests (40 tests).
+- `src/Marketplace.sol` — built, compiles clean. Pure escrow + listings: seller
+  keys and encrypted shipping addresses are off-chain (see Identity model below).
+  **Unaudited.**
+- `test/` — Foundry suite: unit, fuzz, and invariant tests (39 tests, all passing).
 - `script/` — deploy script (TODO; set USDC/xDAI token address per build step 4).
 
 ## Setup
@@ -35,10 +37,26 @@ forge test
   USDC balance always equals open escrow + accrued fees.
 - `test/mocks/` — `MockUSDC` (6-dp) and `ReentrantToken` (reentrancy probe).
 
+## Identity model (decided: delegate to SwarmChat)
+
+Build step §9.3 is resolved in favor of **delegating keys + messaging to
+SwarmChat** (CLAUDE.md §5). The contract is therefore pure escrow + listings:
+
+- `registerShop(bytes32 metadata)` — no on-chain encryption key. Sellers publish
+  their ECIES key via SwarmChat's `ContactRegistry`.
+- `buy(uint256 listingId)` — no `shippingRef`. The buyer sends their
+  ECIES-encrypted address to the seller over PSS, stamped with a short-lived
+  Swarm postage batch so the ciphertext self-expires after fulfillment. The
+  seller correlates it to an order via the `OrderFunded(orderId, …, buyer, …)`
+  event.
+
+This keeps no address — and no pointer to one — on the public chain, and trims
+the contract surface ahead of audit.
+
 ## TODO
 
-- [ ] Decide identity model — possibly strip `encryptionPubKey`/`shippingRef`
-      in favor of SwarmChat `ContactRegistry` (CLAUDE.md §4, §5).
+- [x] Decide identity model — delegated to SwarmChat `ContactRegistry` + PSS;
+      `encryptionPubKey`/`shippingRef` stripped (CLAUDE.md §9.3).
 - [ ] Deploy script with confirmed token address.
 - [ ] Fork test against real Gnosis USDC (optional).
 - [ ] Audit before handling real funds.

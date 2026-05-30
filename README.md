@@ -25,10 +25,14 @@ freemarket/
 
 | Layer | Status |
 |---|---|
-| `Marketplace` contract | Built, compiles clean. **Untested / unaudited.** |
+| `Marketplace` contract | Pure escrow + listings. Foundry suite green (39 tests). **Unaudited.** |
 | Storefront | Demo template (`apps/storefront/src/Storefront.jsx`). |
-| Shared schema | Types drafted (`packages/schema`). |
+| Shared schema | TS types + JSON Schema validation (`packages/schema`). |
 | CMS / admin | Not built. |
+
+> **Identity model (§9.3) decided:** seller keys + encrypted shipping addresses
+> are handled off-chain via SwarmChat (`ContactRegistry` + PSS), so the contract
+> carries no `encryptionPubKey` / `shippingRef`. See `contracts/README.md`.
 
 ## Getting started
 

@@ -71,19 +71,19 @@ Solidity ^0.8.20, OpenZeppelin v5 (`SafeERC20`, `ReentrancyGuard`, `Ownable`). C
 | Function | Access | Purpose |
 |---|---|---|
 | `constructor(usdc, owner)` | — | Sets the payment token and the arbiter/owner. |
-| `registerShop(bytes32 metadata, bytes encryptionPubKey)` | anyone | Create/update a shop. `metadata` = Swarm ref to shop profile. |
+| `registerShop(bytes32 metadata)` | anyone | Create/update a shop. `metadata` = Swarm ref to shop profile. (Seller encryption key lives off-chain in SwarmChat — see §5.) |
 | `createListing(uint256 price, bytes32 metadata)` | shop owner | New listing; `metadata` = Swarm ref to item details/photos. |
 | `updateListing(id, price, metadata, active)` | listing seller | Edit price/metadata/active. |
-| `buy(uint256 listingId, bytes32 shippingRef)` | buyer | Pulls USDC into escrow. Needs prior `usdc.approve`. `shippingRef` = Swarm ref to encrypted address (optional if using PSS — see §5). |
+| `buy(uint256 listingId)` | buyer | Pulls USDC into escrow. Needs prior `usdc.approve`. Encrypted address is sent off-chain over PSS, keyed by `orderId` (see §5). |
 | `confirmReceipt(orderId)` | buyer | Releases escrow to seller. |
 | `claimAfterTimeout(orderId)` | seller | Releases escrow after `autoReleasePeriod` (default 14d) if buyer is silent. |
 | `openDispute(orderId)` | buyer or seller | Moves order to `Disputed`. |
 | `resolveDispute(orderId, refundBuyer)` | owner (arbiter) | Refund buyer or pay seller. |
 | `setFeeBps`, `setAutoReleasePeriod`, `withdrawFees` | owner | Admin. Fee capped at 10%. |
 
-**Events:** `ShopRegistered`, `ListingCreated`, `ListingUpdated`, `OrderFunded(orderId, listingId, buyer, seller, amount, shippingRef)`, `OrderCompleted`, `OrderRefunded`, `DisputeOpened`, plus admin events.
+**Events:** `ShopRegistered`, `ListingCreated`, `ListingUpdated`, `OrderFunded(orderId, listingId, buyer, seller, amount)`, `OrderCompleted`, `OrderRefunded`, `DisputeOpened`, plus admin events.
 
-> **Open decision:** if identity/keys are delegated to SwarmChat's `ContactRegistry` (recommended, §5), the `encryptionPubKey` field and the `shippingRef` argument become redundant and can be removed, leaving the contract as pure escrow + listings.
+> **Decided (was open):** identity/keys are delegated to SwarmChat's `ContactRegistry` (§5). The `encryptionPubKey` field and the `shippingRef` argument have been removed, leaving the contract as **pure escrow + listings**. Encrypted addresses travel off-chain over PSS, stamped with a short-lived Swarm postage batch so the ciphertext self-expires after fulfillment.
 
 ---
 
@@ -167,10 +167,10 @@ Reuse SwarmChat's `make deploy-frontend` per shop:
 
 ## 9. Build Order / TODO
 
-1. **Schema** (`packages/schema`) — TS types + JSON Schema. *Do first; everything depends on it.*
-2. **Contract tests** — Foundry suite mirroring SwarmChat (happy paths, escrow release, timeout, dispute, fees, fuzz, invariants).
-3. **Decide identity model** — delegate keys/comms to `ContactRegistry` + PSS, then strip `encryptionPubKey`/`shippingRef` from `Marketplace`.
-4. **Confirm token** — Gnosis USDC address or commit to xDAI; set in deploy script.
+1. ~~**Schema** (`packages/schema`) — TS types + JSON Schema.~~ ✅ Done.
+2. ~~**Contract tests** — Foundry suite (happy paths, escrow release, timeout, dispute, fees, fuzz, invariants).~~ ✅ Done (39 tests).
+3. ~~**Decide identity model** — delegate keys/comms to `ContactRegistry` + PSS, then strip `encryptionPubKey`/`shippingRef` from `Marketplace`.~~ ✅ Done — delegated to SwarmChat; contract is now pure escrow + listings.
+4. **Confirm token** — Gnosis USDC address or commit to xDAI; set in deploy script. *(next)*
 5. **Storefront (real)** — port template, wire contract + Swarm + PSS.
 6. **CMS / admin** — shop registration, listing CRUD + Swarm image upload, order dashboard (watch `OrderFunded`, pull + decrypt PSS address), mark shipped, disputes.
 7. **Deploy** — per-shop Swarm + ENS pipeline.

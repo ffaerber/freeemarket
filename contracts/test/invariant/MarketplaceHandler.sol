@@ -24,10 +24,8 @@ contract MarketplaceHandler is Test {
         usdc = _usdc;
         owner = _owner;
 
-        bytes memory key = new bytes(33);
-        key[0] = 0x02;
         vm.prank(seller);
-        market.registerShop(bytes32(uint256(1)), key);
+        market.registerShop(bytes32(uint256(1)));
 
         // a handful of listings at varied prices
         for (uint256 i = 1; i <= 3; i++) {
@@ -51,7 +49,7 @@ contract MarketplaceHandler is Test {
         usdc.mint(buyer, price);
         vm.startPrank(buyer);
         usdc.approve(address(market), price);
-        uint256 orderId = market.buy(listingId, bytes32(0));
+        uint256 orderId = market.buy(listingId);
         vm.stopPrank();
         orderIds.push(orderId);
     }
@@ -59,7 +57,7 @@ contract MarketplaceHandler is Test {
     function confirm(uint256 orderSeed) external {
         if (orderIds.length == 0) return;
         uint256 orderId = _pick(orderIds, orderSeed);
-        (,,,,,, Marketplace.OrderState state) = market.orders(orderId);
+        (,,,,, Marketplace.OrderState state) = market.orders(orderId);
         if (state != Marketplace.OrderState.Funded) return;
         vm.prank(buyer);
         market.confirmReceipt(orderId);
@@ -68,7 +66,7 @@ contract MarketplaceHandler is Test {
     function timeout(uint256 orderSeed) external {
         if (orderIds.length == 0) return;
         uint256 orderId = _pick(orderIds, orderSeed);
-        (,,,,,, Marketplace.OrderState state) = market.orders(orderId);
+        (,,,,, Marketplace.OrderState state) = market.orders(orderId);
         if (state != Marketplace.OrderState.Funded) return;
         vm.warp(block.timestamp + market.autoReleasePeriod());
         vm.prank(seller);
@@ -78,7 +76,7 @@ contract MarketplaceHandler is Test {
     function dispute(uint256 orderSeed, bool byBuyer) external {
         if (orderIds.length == 0) return;
         uint256 orderId = _pick(orderIds, orderSeed);
-        (,,,,,, Marketplace.OrderState state) = market.orders(orderId);
+        (,,,,, Marketplace.OrderState state) = market.orders(orderId);
         if (state != Marketplace.OrderState.Funded) return;
         vm.prank(byBuyer ? buyer : seller);
         market.openDispute(orderId);
@@ -87,7 +85,7 @@ contract MarketplaceHandler is Test {
     function resolve(uint256 orderSeed, bool refundBuyer) external {
         if (orderIds.length == 0) return;
         uint256 orderId = _pick(orderIds, orderSeed);
-        (,,,,,, Marketplace.OrderState state) = market.orders(orderId);
+        (,,,,, Marketplace.OrderState state) = market.orders(orderId);
         if (state != Marketplace.OrderState.Disputed) return;
         vm.prank(owner);
         market.resolveDispute(orderId, refundBuyer);
@@ -107,7 +105,7 @@ contract MarketplaceHandler is Test {
     /// Sum of escrow still held for open (Funded or Disputed) orders.
     function openEscrow() external view returns (uint256 total) {
         for (uint256 i = 0; i < orderIds.length; i++) {
-            (,,, uint256 amount,,, Marketplace.OrderState state) = market.orders(orderIds[i]);
+            (,,, uint256 amount,, Marketplace.OrderState state) = market.orders(orderIds[i]);
             if (state == Marketplace.OrderState.Funded || state == Marketplace.OrderState.Disputed) {
                 total += amount;
             }
