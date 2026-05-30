@@ -48,3 +48,18 @@ export interface ListingMetadata {
 }
 
 export const SCHEMA_VERSION = 1 as const;
+
+// JSON Schema (draft-07) definitions and runtime validators.
+export {
+  shopThemeSchema,
+  shopProfileSchema,
+  listingMetadataSchema,
+  allSchemas,
+} from './schemas.js';
+export {
+  SchemaValidationError,
+  isShopProfile,
+  isListingMetadata,
+  assertShopProfile,
+  assertListingMetadata,
+} from './validate.js';

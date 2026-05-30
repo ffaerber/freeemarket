@@ -21,7 +21,8 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  *
  * @dev USDC has 6 decimals: a price of 10 USDC == 10_000_000. Buyers must
  *      `approve` this contract for the price before calling `buy`. The USDC
- *      address is set once at deployment (use the canonical token for Base).
+ *      address is set once at deployment (use the canonical token for Gnosis
+ *      Chain, or commit to xDAI — see CLAUDE.md §3).
  */
 contract Marketplace is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
