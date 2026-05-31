@@ -8,10 +8,13 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title Marketplace
- * @notice A permissionless, multi-vendor marketplace with USDC escrow.
+ * @notice A permissionless, multi-vendor marketplace with multi-token escrow.
  *
  *  - Any address can register a shop and list items (e.g. a freeze-dried
  *    fruit shop with separate listings for 10g / 100g strawberries, etc.).
+ *  - Each listing is priced in an accepted ERC-20 (owner-curated allowlist).
+ *    Different listings — even within one shop — may settle in different
+ *    tokens (e.g. USDC for one item, a wrapped-xDAI stable for another).
  *  - Payment is held in escrow until the buyer confirms receipt (or a
  *    timeout elapses). Either party can open a dispute for the arbiter.
  *
@@ -24,20 +27,25 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  *  on-chain `OrderFunded(orderId, …, buyer, …)` event. No address, and no
  *  pointer to one, ever touches the public chain.
  *
- * @dev USDC has 6 decimals: a price of 10 USDC == 10_000_000. Buyers must
- *      `approve` this contract for the price before calling `buy`. The USDC
- *      address is set once at deployment (use the canonical token for Gnosis
- *      Chain, or commit to xDAI — see CLAUDE.md §3).
+ * @dev Prices are denominated in each token's smallest unit, so decimals vary
+ *      per token (USDC has 6 decimals: 10 USDC == 10_000_000; an 18-decimal
+ *      token would use 10 * 1e18). Buyers must `approve` this contract for the
+ *      price in the listing's token before calling `buy`. The owner curates the
+ *      accepted-token allowlist via `setTokenAccepted` (initial set is seeded at
+ *      deployment — see CLAUDE.md §3/§4).
  */
 contract Marketplace is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
 
-    IERC20 public immutable usdc;
+    /// @notice Owner-curated allowlist of ERC-20s a listing may be priced in.
+    mapping(address => bool) public acceptedTokens;
 
     uint16 public feeBps;                          // platform fee, basis points (100 = 1%)
     uint16 public constant MAX_FEE_BPS = 1000;     // hard cap: 10%
     uint256 public autoReleasePeriod = 14 days;    // buyer silence -> seller may claim
-    uint256 public accruedFees;
+
+    /// @notice Fees accrued per token (each token settles independently).
+    mapping(address => uint256) public accruedFees;
 
     enum OrderState { None, Funded, Completed, Disputed, Refunded }
 
@@ -48,7 +56,8 @@ contract Marketplace is ReentrancyGuard, Ownable {
 
     struct Listing {
         address seller;
-        uint256 price;     // USDC smallest unit
+        address token;     // accepted ERC-20 this listing is priced/settled in
+        uint256 price;     // in token's smallest unit (decimals vary per token)
         bytes32 metadata;  // Swarm ref: item title, photos, package size (e.g. 100g strawberries)
         bool active;
     }
@@ -57,6 +66,7 @@ contract Marketplace is ReentrancyGuard, Ownable {
         uint256 listingId;
         address buyer;
         address seller;
+        address token;     // snapshot of the listing's token at buy time
         uint256 amount;
         uint64  fundedAt;
         OrderState state;
@@ -69,13 +79,21 @@ contract Marketplace is ReentrancyGuard, Ownable {
     mapping(uint256 => Order) public orders;
 
     event ShopRegistered(address indexed seller, bytes32 metadata);
-    event ListingCreated(uint256 indexed id, address indexed seller, uint256 price, bytes32 metadata);
+    event TokenAccepted(address indexed token, bool accepted);
+    event ListingCreated(
+        uint256 indexed id,
+        address indexed seller,
+        address indexed token,
+        uint256 price,
+        bytes32 metadata
+    );
     event ListingUpdated(uint256 indexed id, uint256 price, bytes32 metadata, bool active);
     event OrderFunded(
         uint256 indexed orderId,
         uint256 indexed listingId,
         address indexed buyer,
         address seller,
+        address token,
         uint256 amount
     );
     event OrderCompleted(uint256 indexed orderId, uint256 payout, uint256 fee);
@@ -83,11 +101,28 @@ contract Marketplace is ReentrancyGuard, Ownable {
     event DisputeOpened(uint256 indexed orderId, address indexed by);
     event FeeUpdated(uint16 feeBps);
     event AutoReleasePeriodUpdated(uint256 period);
-    event FeesWithdrawn(address indexed to, uint256 amount);
+    event FeesWithdrawn(address indexed token, address indexed to, uint256 amount);
 
-    constructor(address _usdc, address _owner) Ownable(_owner) {
-        require(_usdc != address(0), "usdc=0");
-        usdc = IERC20(_usdc);
+    /// @param initialTokens ERC-20s to seed the accepted-token allowlist with.
+    /// @param _owner        arbiter/owner.
+    constructor(address[] memory initialTokens, address _owner) Ownable(_owner) {
+        for (uint256 i = 0; i < initialTokens.length; i++) {
+            address token = initialTokens[i];
+            require(token != address(0), "token=0");
+            acceptedTokens[token] = true;
+            emit TokenAccepted(token, true);
+        }
+    }
+
+    // --- Admin: token allowlist ---
+
+    /// @notice Add or remove an ERC-20 from the accepted-token allowlist. Removing
+    ///         a token only blocks NEW listings/buys in it; existing orders settle
+    ///         in their snapshotted token regardless.
+    function setTokenAccepted(address token, bool accepted) external onlyOwner {
+        require(token != address(0), "token=0");
+        acceptedTokens[token] = accepted;
+        emit TokenAccepted(token, accepted);
     }
 
     // --- Shops ---
@@ -104,14 +139,29 @@ contract Marketplace is ReentrancyGuard, Ownable {
 
     // --- Listings ---
 
-    function createListing(uint256 price, bytes32 metadata) external returns (uint256 id) {
+    /// @notice Create a listing priced in `token`, which must be on the accepted
+    ///         allowlist. `price` is in the token's smallest unit.
+    function createListing(address token, uint256 price, bytes32 metadata)
+        external
+        returns (uint256 id)
+    {
         require(shops[msg.sender].registered, "no shop");
+        require(acceptedTokens[token], "token not accepted");
         require(price > 0, "price=0");
         id = nextListingId++;
-        listings[id] = Listing({seller: msg.sender, price: price, metadata: metadata, active: true});
-        emit ListingCreated(id, msg.sender, price, metadata);
+        listings[id] = Listing({
+            seller: msg.sender,
+            token: token,
+            price: price,
+            metadata: metadata,
+            active: true
+        });
+        emit ListingCreated(id, msg.sender, token, price, metadata);
     }
 
+    /// @notice Edit price/metadata/active. The settlement token is intentionally
+    ///         immutable after creation (changing it mid-life would complicate
+    ///         in-flight orders); create a new listing to sell in another token.
     function updateListing(uint256 id, uint256 price, bytes32 metadata, bool active) external {
         Listing storage l = listings[id];
         require(l.seller == msg.sender, "not seller");
@@ -124,10 +174,10 @@ contract Marketplace is ReentrancyGuard, Ownable {
 
     // --- Buying / escrow ---
 
-    /// @notice Buyer must `approve` this contract for `price` USDC first. The
-    ///         encrypted shipping address is delivered to the seller off-chain
-    ///         over PSS once the order is funded (CLAUDE.md §5), keyed by the
-    ///         emitted `orderId`.
+    /// @notice Buyer must `approve` this contract for `price` of the listing's
+    ///         token first. The encrypted shipping address is delivered to the
+    ///         seller off-chain over PSS once the order is funded (CLAUDE.md §5),
+    ///         keyed by the emitted `orderId`.
     function buy(uint256 listingId)
         external
         nonReentrant
@@ -142,13 +192,14 @@ contract Marketplace is ReentrancyGuard, Ownable {
             listingId: listingId,
             buyer: msg.sender,
             seller: l.seller,
+            token: l.token,
             amount: l.price,
             fundedAt: uint64(block.timestamp),
             state: OrderState.Funded
         });
 
-        usdc.safeTransferFrom(msg.sender, address(this), l.price);
-        emit OrderFunded(orderId, listingId, msg.sender, l.seller, l.price);
+        IERC20(l.token).safeTransferFrom(msg.sender, address(this), l.price);
+        emit OrderFunded(orderId, listingId, msg.sender, l.seller, l.token, l.price);
     }
 
     /// @notice Buyer releases escrow to the seller after receiving the item.
@@ -172,8 +223,8 @@ contract Marketplace is ReentrancyGuard, Ownable {
         o.state = OrderState.Completed;
         uint256 fee = (o.amount * feeBps) / 10_000;
         uint256 payout = o.amount - fee;
-        accruedFees += fee;
-        usdc.safeTransfer(o.seller, payout);
+        accruedFees[o.token] += fee;
+        IERC20(o.token).safeTransfer(o.seller, payout);
         emit OrderCompleted(orderId, payout, fee);
     }
 
@@ -193,7 +244,7 @@ contract Marketplace is ReentrancyGuard, Ownable {
         require(o.state == OrderState.Disputed, "not disputed");
         if (refundBuyer) {
             o.state = OrderState.Refunded;
-            usdc.safeTransfer(o.buyer, o.amount);
+            IERC20(o.token).safeTransfer(o.buyer, o.amount);
             emit OrderRefunded(orderId, o.amount);
         } else {
             _release(orderId, o);
@@ -214,11 +265,12 @@ contract Marketplace is ReentrancyGuard, Ownable {
         emit AutoReleasePeriodUpdated(period);
     }
 
-    function withdrawFees(address to) external onlyOwner nonReentrant {
+    /// @notice Withdraw fees accrued in a specific token.
+    function withdrawFees(address token, address to) external onlyOwner nonReentrant {
         require(to != address(0), "to=0");
-        uint256 amt = accruedFees;
-        accruedFees = 0;
-        usdc.safeTransfer(to, amt);
-        emit FeesWithdrawn(to, amt);
+        uint256 amt = accruedFees[token];
+        accruedFees[token] = 0;
+        IERC20(token).safeTransfer(to, amt);
+        emit FeesWithdrawn(token, to, amt);
     }
 }

@@ -1,69 +1,62 @@
 /**
- * Runtime validation for the FreeMarket Swarm schema.
- *
- * Wraps ajv with a small, typed API so clients can validate untrusted objects
- * fetched from Swarm before trusting them. On success the value is narrowed to
- * the corresponding TypeScript type; on failure a `SchemaValidationError`
- * carries the underlying ajv errors.
+ * Runtime validators for the FreeMarket schema. Thin wrappers over Ajv with
+ * ergonomic type guards and asserts that the CMS and storefront can share.
  */
-import { Ajv, type ErrorObject, type ValidateFunction } from 'ajv';
-import type { ListingMetadata, ShopProfile } from './index.js';
+import Ajv, { type ValidateFunction } from 'ajv';
 import {
-  listingMetadataSchema,
   shopProfileSchema,
+  listingMetadataSchema,
   shopThemeSchema,
+  paymentHintSchema,
 } from './schemas.js';
+import type { ShopProfile, ListingMetadata } from './index.js';
 
-const ajv = new Ajv({ allErrors: true, strict: true });
+const ajv = new Ajv({ allErrors: true });
 
-// `shopThemeSchema` is referenced by `$ref` from the shop-profile schema, so it
-// must be registered (not compiled into a validator) before compilation.
+// Register the shared $ref'd schemas once so resolution works.
 ajv.addSchema(shopThemeSchema);
+ajv.addSchema(paymentHintSchema);
 
-const validateShopProfileFn: ValidateFunction<ShopProfile> =
-  ajv.compile<ShopProfile>(shopProfileSchema);
-const validateListingMetadataFn: ValidateFunction<ListingMetadata> =
-  ajv.compile<ListingMetadata>(listingMetadataSchema);
+const _validateShop: ValidateFunction = ajv.compile(shopProfileSchema);
+const _validateListing: ValidateFunction = ajv.compile(listingMetadataSchema);
 
-/** Thrown by the `assert*` helpers when validation fails. */
-export class SchemaValidationError extends Error {
-  readonly errors: ErrorObject[];
-
-  constructor(what: string, errors: ErrorObject[] | null | undefined) {
-    const detail = (errors ?? [])
-      .map((e) => `${e.instancePath || '/'} ${e.message}`)
-      .join('; ');
-    super(`Invalid ${what}: ${detail || 'unknown validation error'}`);
-    this.name = 'SchemaValidationError';
-    this.errors = errors ?? [];
-  }
-}
-
-/** Type guard: returns true and narrows `value` to `ShopProfile` if valid. */
 export function isShopProfile(value: unknown): value is ShopProfile {
-  return validateShopProfileFn(value);
+  return _validateShop(value) as boolean;
 }
 
-/** Type guard: returns true and narrows `value` to `ListingMetadata` if valid. */
 export function isListingMetadata(value: unknown): value is ListingMetadata {
-  return validateListingMetadataFn(value);
+  return _validateListing(value) as boolean;
 }
 
-/** Validates a `ShopProfile`, throwing `SchemaValidationError` on failure. */
-export function assertShopProfile(value: unknown): ShopProfile {
-  if (!validateShopProfileFn(value)) {
-    throw new SchemaValidationError('ShopProfile', validateShopProfileFn.errors);
+export class SchemaValidationError extends Error {
+  readonly errors: object[];
+  constructor(message: string, errors: object[]) {
+    super(message);
+    this.name = 'SchemaValidationError';
+    this.errors = errors;
   }
-  return value;
 }
 
-/** Validates a `ListingMetadata`, throwing `SchemaValidationError` on failure. */
-export function assertListingMetadata(value: unknown): ListingMetadata {
-  if (!validateListingMetadataFn(value)) {
+function format(errors: unknown): object[] {
+  return (errors as object[]) ?? [];
+}
+
+export function assertShopProfile(value: unknown): ShopProfile {
+  if (!_validateShop(value)) {
     throw new SchemaValidationError(
-      'ListingMetadata',
-      validateListingMetadataFn.errors,
+      'Invalid ShopProfile',
+      format(_validateShop.errors),
     );
   }
-  return value;
+  return value as ShopProfile;
+}
+
+export function assertListingMetadata(value: unknown): ListingMetadata {
+  if (!_validateListing(value)) {
+    throw new SchemaValidationError(
+      'Invalid ListingMetadata',
+      format(_validateListing.errors),
+    );
+  }
+  return value as ListingMetadata;
 }

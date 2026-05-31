@@ -17,7 +17,9 @@ contract MarketplaceFuzzTest is Test {
 
     function setUp() public {
         usdc = new MockUSDC();
-        market = new Marketplace(address(usdc), owner);
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(usdc);
+        market = new Marketplace(tokens, owner);
     }
 
     /// Payout + fee must always exactly equal the escrowed amount, and the fee
@@ -32,7 +34,7 @@ contract MarketplaceFuzzTest is Test {
         vm.prank(seller);
         market.registerShop(META);
         vm.prank(seller);
-        uint256 id = market.createListing(price, META);
+        uint256 id = market.createListing(address(usdc), price, META);
 
         usdc.mint(buyer, price);
         vm.startPrank(buyer);
@@ -43,7 +45,7 @@ contract MarketplaceFuzzTest is Test {
         vm.prank(buyer);
         market.confirmReceipt(orderId);
 
-        uint256 fee = market.accruedFees();
+        uint256 fee = market.accruedFees(address(usdc));
         uint256 payout = usdc.balanceOf(seller);
 
         assertEq(payout + fee, price, "payout + fee must equal escrow");
@@ -63,7 +65,7 @@ contract MarketplaceFuzzTest is Test {
         vm.prank(seller);
         market.registerShop(META);
         vm.prank(seller);
-        uint256 id = market.createListing(1_000_000, META);
+        uint256 id = market.createListing(address(usdc), 1_000_000, META);
 
         usdc.mint(buyer, 1_000_000);
         vm.startPrank(buyer);

@@ -56,6 +56,22 @@ export const shopProfileSchema: SchemaObject = {
   },
 };
 
+/**
+ * Display hint for the listing's on-chain payment token. The canonical token +
+ * price are on-chain; this only carries symbol/decimals for rendering.
+ */
+export const paymentHintSchema: SchemaObject = {
+  $id: 'https://freemarket.eth/schema/payment-hint.json',
+  type: 'object',
+  additionalProperties: false,
+  required: ['token'],
+  properties: {
+    token: { type: 'string', minLength: 1 },
+    symbol: { type: 'string' },
+    decimals: { type: 'integer', minimum: 0, maximum: 36 },
+  },
+};
+
 /** Pointed to by `Listing.metadata` (bytes32 Swarm ref). Price is on-chain. */
 export const listingMetadataSchema: SchemaObject = {
   $id: 'https://freemarket.eth/schema/listing-metadata.json',
@@ -73,12 +89,15 @@ export const listingMetadataSchema: SchemaObject = {
       type: 'object',
       additionalProperties: { type: 'string' },
     },
+    // Display hint only; on-chain token/price remain authoritative.
+    payment: { $ref: 'https://freemarket.eth/schema/payment-hint.json' },
   },
 };
 
 /** All schemas, keyed by their `$id`. Useful for bulk registration. */
 export const allSchemas: SchemaObject[] = [
   shopThemeSchema,
+  paymentHintSchema,
   shopProfileSchema,
   listingMetadataSchema,
 ];
