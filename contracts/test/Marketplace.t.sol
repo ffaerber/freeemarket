@@ -21,6 +21,7 @@ contract MarketplaceTest is Test {
     address internal stranger = makeAddr("stranger");
 
     uint256 internal constant PRICE = 10_000_000; // 10 USDC (6 dp)
+    uint256 internal constant STOCK = 100;        // default listing stock (a unit count)
     bytes32 internal constant SHOP_META = bytes32(uint256(0x5409));
     bytes32 internal constant ITEM_META = bytes32(uint256(0x17e3));
 
@@ -32,9 +33,11 @@ contract MarketplaceTest is Test {
         address indexed seller,
         address indexed token,
         uint256 price,
+        uint256 stock,
         bytes32 metadata
     );
-    event ListingUpdated(uint256 indexed id, uint256 price, bytes32 metadata, bool active);
+    event ListingUpdated(uint256 indexed id, uint256 price, uint256 stock, bytes32 metadata, bool active);
+    event StockChanged(uint256 indexed id, uint256 newStock);
     event OrderFunded(
         uint256 indexed orderId,
         uint256 indexed listingId,
@@ -68,7 +71,7 @@ contract MarketplaceTest is Test {
     function _listing(uint256 price) internal returns (uint256 id) {
         _registerShop();
         vm.prank(seller);
-        id = market.createListing(address(usdc), price, ITEM_META);
+        id = market.createListing(address(usdc), price, STOCK, ITEM_META);
     }
 
     function _fund(uint256 listingId) internal returns (uint256 orderId) {
@@ -142,7 +145,7 @@ contract MarketplaceTest is Test {
     function test_createListing_requiresShop() public {
         vm.prank(seller);
         vm.expectRevert(bytes("no shop"));
-        market.createListing(address(usdc), PRICE, ITEM_META);
+        market.createListing(address(usdc), PRICE, STOCK, ITEM_META);
     }
 
     function test_createListing_rejectsUnacceptedToken() public {
@@ -150,32 +153,41 @@ contract MarketplaceTest is Test {
         MockToken other = new MockToken("Other", "OTH", 18);
         vm.prank(seller);
         vm.expectRevert(bytes("token not accepted"));
-        market.createListing(address(other), PRICE, ITEM_META);
+        market.createListing(address(other), PRICE, STOCK, ITEM_META);
     }
 
     function test_createListing_rejectsZeroPrice() public {
         _registerShop();
         vm.prank(seller);
         vm.expectRevert(bytes("price=0"));
-        market.createListing(address(usdc), 0, ITEM_META);
+        market.createListing(address(usdc), 0, STOCK, ITEM_META);
+    }
+
+    function test_createListing_rejectsZeroStock() public {
+        _registerShop();
+        vm.prank(seller);
+        vm.expectRevert(bytes("stock=0"));
+        market.createListing(address(usdc), PRICE, 0, ITEM_META);
     }
 
     function test_createListing_incrementsIdAndEmits() public {
         _registerShop();
         vm.expectEmit(true, true, true, true);
-        emit ListingCreated(1, seller, address(usdc), PRICE, ITEM_META);
+        emit ListingCreated(1, seller, address(usdc), PRICE, STOCK, ITEM_META);
         vm.prank(seller);
-        uint256 id1 = market.createListing(address(usdc), PRICE, ITEM_META);
+        uint256 id1 = market.createListing(address(usdc), PRICE, STOCK, ITEM_META);
 
         vm.prank(seller);
-        uint256 id2 = market.createListing(address(usdc), PRICE, ITEM_META);
+        uint256 id2 = market.createListing(address(usdc), PRICE, STOCK, ITEM_META);
 
         assertEq(id1, 1);
         assertEq(id2, 2);
-        (address s, address token, uint256 price, bytes32 meta, bool active) = market.listings(id1);
+        (address s, address token, uint256 price, uint256 stock, bytes32 meta, bool active) =
+            market.listings(id1);
         assertEq(s, seller);
         assertEq(token, address(usdc));
         assertEq(price, PRICE);
+        assertEq(stock, STOCK);
         assertEq(meta, ITEM_META);
         assertTrue(active);
     }
@@ -184,20 +196,21 @@ contract MarketplaceTest is Test {
         uint256 id = _listing(PRICE);
         vm.prank(stranger);
         vm.expectRevert(bytes("not seller"));
-        market.updateListing(id, PRICE, ITEM_META, false);
+        market.updateListing(id, PRICE, STOCK, ITEM_META, false);
     }
 
     function test_updateListing_editsFields() public {
         uint256 id = _listing(PRICE);
         bytes32 newMeta = bytes32(uint256(0xC0DE));
         vm.expectEmit(true, false, false, true);
-        emit ListingUpdated(id, 5_000_000, newMeta, false);
+        emit ListingUpdated(id, 5_000_000, 42, newMeta, false);
         vm.prank(seller);
-        market.updateListing(id, 5_000_000, newMeta, false);
+        market.updateListing(id, 5_000_000, 42, newMeta, false);
 
-        (, address token, uint256 price, bytes32 meta, bool active) = market.listings(id);
+        (, address token, uint256 price, uint256 stock, bytes32 meta, bool active) = market.listings(id);
         assertEq(token, address(usdc)); // token is immutable across updates
         assertEq(price, 5_000_000);
+        assertEq(stock, 42);
         assertEq(meta, newMeta);
         assertFalse(active);
     }
@@ -206,7 +219,108 @@ contract MarketplaceTest is Test {
         uint256 id = _listing(PRICE);
         vm.prank(seller);
         vm.expectRevert(bytes("price=0"));
-        market.updateListing(id, 0, ITEM_META, true);
+        market.updateListing(id, 0, STOCK, ITEM_META, true);
+    }
+
+    // --- stock / inventory ---
+
+    function test_buy_decrementsStockByOneAndEmits() public {
+        uint256 id = _listing(PRICE);
+
+        vm.startPrank(buyer);
+        usdc.approve(address(market), PRICE);
+        vm.expectEmit(true, false, false, true);
+        emit StockChanged(id, STOCK - 1);
+        market.buy(id);
+        vm.stopPrank();
+
+        (,,, uint256 stock,,) = market.listings(id);
+        assertEq(stock, STOCK - 1);
+    }
+
+    function test_buy_lastUnitThenOutOfStock() public {
+        uint256 id = _listing(PRICE);
+        vm.prank(seller);
+        market.updateListing(id, PRICE, 1, ITEM_META, true); // restock down to a single unit
+
+        // Buy the last unit -> stock hits 0.
+        vm.startPrank(buyer);
+        usdc.approve(address(market), PRICE);
+        market.buy(id);
+        vm.stopPrank();
+
+        (,,, uint256 stock,,) = market.listings(id);
+        assertEq(stock, 0);
+
+        // Next buy reverts: out of stock.
+        vm.startPrank(buyer);
+        usdc.approve(address(market), PRICE);
+        vm.expectRevert(bytes("out of stock"));
+        market.buy(id);
+        vm.stopPrank();
+    }
+
+    function test_updateListing_setStockToZeroBlocksBuy() public {
+        uint256 id = _listing(PRICE);
+        vm.prank(seller);
+        market.updateListing(id, PRICE, 0, ITEM_META, true); // sold out via update
+
+        vm.startPrank(buyer);
+        usdc.approve(address(market), PRICE);
+        vm.expectRevert(bytes("out of stock"));
+        market.buy(id);
+        vm.stopPrank();
+    }
+
+    function test_updateListing_restockFromZeroReenablesBuy() public {
+        uint256 id = _listing(PRICE);
+        vm.prank(seller);
+        market.updateListing(id, PRICE, 0, ITEM_META, true);
+
+        // Out of stock: buy reverts.
+        vm.startPrank(buyer);
+        usdc.approve(address(market), PRICE);
+        vm.expectRevert(bytes("out of stock"));
+        market.buy(id);
+        vm.stopPrank();
+
+        // Restock to 3.
+        vm.prank(seller);
+        vm.expectEmit(true, false, false, true);
+        emit StockChanged(id, 3);
+        market.updateListing(id, PRICE, 3, ITEM_META, true);
+
+        // Buy works again.
+        vm.startPrank(buyer);
+        usdc.approve(address(market), PRICE);
+        market.buy(id);
+        vm.stopPrank();
+
+        (,,, uint256 stock,,) = market.listings(id);
+        assertEq(stock, 2);
+    }
+
+    function test_buy_multiUnitSupportsNBuysThenReverts() public {
+        uint256 n = 3;
+        _registerShop();
+        vm.prank(seller);
+        uint256 id = market.createListing(address(usdc), PRICE, n, ITEM_META);
+
+        for (uint256 i = 0; i < n; i++) {
+            vm.startPrank(buyer);
+            usdc.approve(address(market), PRICE);
+            market.buy(id);
+            vm.stopPrank();
+        }
+
+        (,,, uint256 stock,,) = market.listings(id);
+        assertEq(stock, 0);
+
+        vm.startPrank(buyer);
+        usdc.approve(address(market), PRICE);
+        vm.expectRevert(bytes("out of stock"));
+        market.buy(id);
+        vm.stopPrank();
     }
 
     // --- buy / escrow ---
@@ -252,7 +366,7 @@ contract MarketplaceTest is Test {
     function test_buy_revertsOnInactiveListing() public {
         uint256 id = _listing(PRICE);
         vm.prank(seller);
-        market.updateListing(id, PRICE, ITEM_META, false);
+        market.updateListing(id, PRICE, STOCK, ITEM_META, false);
 
         vm.startPrank(buyer);
         usdc.approve(address(market), PRICE);
@@ -538,7 +652,7 @@ contract MarketplaceTest is Test {
 
         _registerShop();
         vm.prank(seller);
-        uint256 id = market.createListing(address(dai), daiPrice, ITEM_META);
+        uint256 id = market.createListing(address(dai), daiPrice, STOCK, ITEM_META);
 
         dai.mint(buyer, daiPrice);
         vm.startPrank(buyer);
@@ -577,7 +691,7 @@ contract MarketplaceTest is Test {
 
         // USDC order
         vm.prank(seller);
-        uint256 usdcListing = market.createListing(address(usdc), PRICE, ITEM_META);
+        uint256 usdcListing = market.createListing(address(usdc), PRICE, STOCK, ITEM_META);
         uint256 usdcOrder = _fund(usdcListing);
         vm.prank(buyer);
         market.confirmReceipt(usdcOrder);
@@ -585,7 +699,7 @@ contract MarketplaceTest is Test {
         // DAI order
         uint256 daiPrice = 3 * 1e18;
         vm.prank(seller);
-        uint256 daiListing = market.createListing(address(dai), daiPrice, ITEM_META);
+        uint256 daiListing = market.createListing(address(dai), daiPrice, STOCK, ITEM_META);
         dai.mint(buyer, daiPrice);
         vm.startPrank(buyer);
         dai.approve(address(market), daiPrice);
@@ -623,7 +737,7 @@ contract MarketplaceTest is Test {
 
         _registerShop();
         vm.prank(seller);
-        uint256 id = market.createListing(address(dai), daiPrice, ITEM_META);
+        uint256 id = market.createListing(address(dai), daiPrice, STOCK, ITEM_META);
 
         dai.mint(buyer, daiPrice);
         vm.startPrank(buyer);
@@ -644,7 +758,7 @@ contract MarketplaceTest is Test {
         // But new listings in the de-listed token are blocked.
         vm.prank(seller);
         vm.expectRevert(bytes("token not accepted"));
-        market.createListing(address(dai), daiPrice, ITEM_META);
+        market.createListing(address(dai), daiPrice, STOCK, ITEM_META);
     }
 
     // --- reentrancy ---
@@ -665,7 +779,7 @@ contract MarketplaceTest is Test {
         vm.prank(seller);
         m.registerShop(SHOP_META);
         vm.prank(seller);
-        uint256 id = m.createListing(address(evil), PRICE, ITEM_META);
+        uint256 id = m.createListing(address(evil), PRICE, STOCK, ITEM_META);
 
         // On the buyer's token pull, re-enter buy() again.
         evil.arm(address(m), abi.encodeWithSelector(m.buy.selector, id));
@@ -685,7 +799,7 @@ contract MarketplaceTest is Test {
         vm.prank(seller);
         m.registerShop(SHOP_META);
         vm.prank(seller);
-        uint256 id = m.createListing(address(evil), PRICE, ITEM_META);
+        uint256 id = m.createListing(address(evil), PRICE, STOCK, ITEM_META);
 
         vm.startPrank(buyer);
         evil.approve(address(m), PRICE);

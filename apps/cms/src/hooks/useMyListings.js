@@ -67,8 +67,8 @@ async function loadMyListings(client, seller) {
         console.warn(`[cms:listings] failed reading listing ${id}:`, err);
         return null;
       }
-      // listings() → [seller, token, price, metadata, active]
-      const [, token, price, metadataRef, active] = listing;
+      // listings() → [seller, token, price, stock, metadata, active]
+      const [, token, price, stock, metadataRef, active] = listing;
 
       const meta = await fetchListingMetadata(BEE_URL, metadataRef);
       const { decimals, symbol } = await readToken(client, token, meta?.payment);
@@ -77,6 +77,8 @@ async function loadMyListings(client, seller) {
         id,
         token,
         price, // bigint, smallest unit
+        stock, // bigint, remaining units (a COUNT — never formatUnits)
+        stockCount: Number(stock),
         decimals,
         symbol,
         priceFormatted: formatUnits(price, decimals),

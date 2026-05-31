@@ -58,6 +58,7 @@ contract Marketplace is ReentrancyGuard, Ownable {
         address seller;
         address token;     // accepted ERC-20 this listing is priced/settled in
         uint256 price;     // in token's smallest unit (decimals vary per token)
+        uint256 stock;     // remaining units; a unit count (NOT a token amount). buy() decrements; 0 == sold out
         bytes32 metadata;  // Swarm ref: item title, photos, package size (e.g. 100g strawberries)
         bool active;
     }
@@ -85,9 +86,13 @@ contract Marketplace is ReentrancyGuard, Ownable {
         address indexed seller,
         address indexed token,
         uint256 price,
+        uint256 stock,
         bytes32 metadata
     );
-    event ListingUpdated(uint256 indexed id, uint256 price, bytes32 metadata, bool active);
+    event ListingUpdated(uint256 indexed id, uint256 price, uint256 stock, bytes32 metadata, bool active);
+    /// @notice Emitted whenever a listing's remaining `stock` changes (on buy and on update),
+    ///         so storefronts/indexers can track inventory cheaply without re-reading the listing.
+    event StockChanged(uint256 indexed id, uint256 newStock);
     event OrderFunded(
         uint256 indexed orderId,
         uint256 indexed listingId,
@@ -140,36 +145,44 @@ contract Marketplace is ReentrancyGuard, Ownable {
     // --- Listings ---
 
     /// @notice Create a listing priced in `token`, which must be on the accepted
-    ///         allowlist. `price` is in the token's smallest unit.
-    function createListing(address token, uint256 price, bytes32 metadata)
+    ///         allowlist. `price` is in the token's smallest unit. `stock` is the
+    ///         initial number of units available (a count, not a token amount) and
+    ///         must be > 0; each `buy` decrements it by one.
+    function createListing(address token, uint256 price, uint256 stock, bytes32 metadata)
         external
         returns (uint256 id)
     {
         require(shops[msg.sender].registered, "no shop");
         require(acceptedTokens[token], "token not accepted");
         require(price > 0, "price=0");
+        require(stock > 0, "stock=0");
         id = nextListingId++;
         listings[id] = Listing({
             seller: msg.sender,
             token: token,
             price: price,
+            stock: stock,
             metadata: metadata,
             active: true
         });
-        emit ListingCreated(id, msg.sender, token, price, metadata);
+        emit ListingCreated(id, msg.sender, token, price, stock, metadata);
     }
 
-    /// @notice Edit price/metadata/active. The settlement token is intentionally
-    ///         immutable after creation (changing it mid-life would complicate
-    ///         in-flight orders); create a new listing to sell in another token.
-    function updateListing(uint256 id, uint256 price, bytes32 metadata, bool active) external {
+    /// @notice Edit price/stock/metadata/active. `stock` may be set to any value,
+    ///         including 0 (sold out / paused by exhaustion) or raised to restock.
+    ///         The settlement token is intentionally immutable after creation
+    ///         (changing it mid-life would complicate in-flight orders); create a
+    ///         new listing to sell in another token.
+    function updateListing(uint256 id, uint256 price, uint256 stock, bytes32 metadata, bool active) external {
         Listing storage l = listings[id];
         require(l.seller == msg.sender, "not seller");
         require(price > 0, "price=0");
         l.price = price;
+        l.stock = stock;
         l.metadata = metadata;
         l.active = active;
-        emit ListingUpdated(id, price, metadata, active);
+        emit ListingUpdated(id, price, stock, metadata, active);
+        emit StockChanged(id, stock);
     }
 
     // --- Buying / escrow ---
@@ -185,6 +198,7 @@ contract Marketplace is ReentrancyGuard, Ownable {
     {
         Listing memory l = listings[listingId];
         require(l.active, "inactive");
+        require(l.stock > 0, "out of stock");
         require(l.seller != msg.sender, "self-buy");
 
         orderId = nextOrderId++;
@@ -197,6 +211,12 @@ contract Marketplace is ReentrancyGuard, Ownable {
             fundedAt: uint64(block.timestamp),
             state: OrderState.Funded
         });
+
+        // Effects before the external token pull (checks-effects-interactions):
+        // decrement the STORAGE listing's stock (the loaded `l` is a memory copy).
+        uint256 newStock = l.stock - 1;
+        listings[listingId].stock = newStock;
+        emit StockChanged(listingId, newStock);
 
         IERC20(l.token).safeTransferFrom(msg.sender, address(this), l.price);
         emit OrderFunded(orderId, listingId, msg.sender, l.seller, l.token, l.price);

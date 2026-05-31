@@ -90,9 +90,9 @@ async function loadListings(client) {
         console.warn(`[listings] failed reading listing ${id}:`, err);
         return null;
       }
-      // listings() → [seller, token, price, metadata, active]
-      const [, token, price, metadataRef, active] = listing;
-      if (!active) return null; // skip inactive
+      // listings() → [seller, token, price, stock, metadata, active]
+      const [, token, price, stock, metadataRef, active] = listing;
+      if (!active) return null; // skip inactive (stock 0 is kept, shown "Sold out")
 
       // 4. Swarm metadata (validated). Fetch first so we have the payment hint.
       const meta = await fetchListingMetadata(BEE_URL, metadataRef);
@@ -106,6 +106,9 @@ async function loadListings(client) {
         id,
         token,
         price, // bigint, smallest unit
+        stock, // bigint, remaining units (a COUNT — never run through formatUnits)
+        stockCount: Number(stock), // convenience number for display/logic
+        soldOut: stock === 0n,
         decimals,
         symbol,
         priceFormatted,
