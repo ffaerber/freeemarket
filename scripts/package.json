@@ -1,0 +1,17 @@
+{
+  "name": "@freemarket/scripts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FreeMarket ops scripts — per-shop Swarm + ENS deploy pipeline (CLAUDE.md §8).",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "deploy-frontend": "node deploy-frontend.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@ensdomains/content-hash": "^3.0.0",
+    "@ethersphere/bee-js": "^8.3.1",
+    "viem": "^2.21.0"
+  }
+}

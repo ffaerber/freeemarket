@@ -186,11 +186,18 @@ To productionize:
 
 ## 8. Deploy Pipeline
 
-Reuse SwarmChat's `make deploy-frontend` per shop:
-1. Build the storefront.
-2. Upload to Swarm (Bee node), get the **feed manifest hash** (not raw hash — lets future updates resolve without re-touching ENS).
-3. Set the ENS `contenthash` on **mainnet** to the feed manifest.
-4. Shop is live at `shopname.eth.limo`. Escrow contract stays on Gnosis.
+✅ **Built** — `scripts/deploy-frontend.mjs` + `make deploy-frontend` (and
+`make deploy-frontend-build` for BUILD=1). Per shop:
+1. Build the storefront (shop env baked in at build time — optional `BUILD=1`, else a prebuilt `DIST_DIR`).
+2. Upload `dist/` to Swarm (full Bee node) as a website collection (index + error document) → content reference.
+3. Write a Swarm **feed** (owned by the deployer's feed key) pointing at that reference → the **feed manifest hash** (a stable address; future updates re-write the feed without re-touching ENS — not the raw content hash).
+4. Encode `bzz://<feedManifest>` as an EIP-1577 contenthash and **set it on mainnet ENS** (only with `CONFIRM_MAINNET=1` + an `ENS_RPC_URL`/`ENS_PRIVATE_KEY`) **or PRINT it + instructions** (the safe default — ENS is on mainnet with real ETH cost, never broadcast by accident).
+5. Shop is live at `shopname.eth.limo`. Escrow contract stays on Gnosis.
+
+Env-driven, print-only by default, secrets runtime-only (never committed/logged).
+The pure contenthash encoder is unit-tested (`scripts/deploy-frontend.test.mjs`).
+Full walkthrough (prerequisites, env, dry-run vs live, verify, update flow,
+security notes) in [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ---
 
@@ -202,7 +209,7 @@ Reuse SwarmChat's `make deploy-frontend` per shop:
 4. ~~**Confirm token** — Gnosis USDC address or commit to xDAI; set in deploy script.~~ ✅ Done — replaced the single hardcoded token with an owner-curated `acceptedTokens` allowlist + per-listing token choice (multi-token escrow). The deploy script (`contracts/script/Deploy.s.sol`) seeds the allowlist — defaulting to Gnosis WXDAI + bridged USDC, overridable via the `TOKENS` env — and the owner can add/remove tokens later via `setTokenAccepted`. No single token is hardcoded.
 5. **Storefront (real)** — port template, wire contract + Swarm + PSS.
 6. ~~**CMS / admin** — shop registration, listing CRUD + Swarm image upload, order dashboard (watch `OrderFunded`, pull + decrypt PSS address), mark shipped, disputes.~~ ✅ Done (`apps/cms`) — built on the storefront's stack (Vite + wagmi v2 + viem + bee-js + `@freemarket/schema`). Shop registration (`registerShop`, schema-validated profile → Swarm), listing CRUD + Swarm image/metadata upload (per-listing accepted-token pick, decimals read on-chain via `parseUnits`), order dashboard (`OrderFunded` filtered by seller + live `orders()` state, `claimAfterTimeout`/`openDispute`/owner-only `resolveDispute`). Mark-shipped is an off-chain localStorage memo (no on-chain shipped state). PSS messaging is **wired live** to `@freemarket/messaging` (`receiveDecryptedAddress` decrypts the buyer's address with the merchant's locally-unlocked ECIES key; `sendShipmentUpdateFromCms` sends a tracking code back to the buyer), gated on ContactRegistry + a full Bee node + postage batch + the unlocked key, with a graceful stub fallback when unconfigured (see step 9 below).
-7. **Deploy** — per-shop Swarm + ENS pipeline.
+7. ~~**Deploy** — per-shop Swarm + ENS pipeline.~~ ✅ Done (`scripts/deploy-frontend.mjs` + `make deploy-frontend`) — build storefront (env baked in) → upload `dist/` to Swarm as a collection → update a Swarm feed → encode the EIP-1577 swarm contenthash → set/print ENS contenthash on mainnet. Print-only by default; live mainnet set gated behind `CONFIRM_MAINNET=1` + explicit ENS RPC/key. Secrets are runtime-only (never committed/logged); the pure contenthash encoder is unit-tested. See `docs/DEPLOY.md`.
 8. **Audit** — before any real funds on mainnet.
 9. ~~**Messaging lib** (`packages/messaging`, `@freemarket/messaging`) — encrypted PSS messaging.~~ ✅ Done — **bidirectional**: buyer→seller shipping address AND seller→buyer tracking code, on shared machinery (ECIES via eciesjs + signed envelopes via viem with on-chain sender verification, `BeeTransport` for real PSS+feeds / `InMemoryTransport` for tests). Unit-tested (crypto round-trip, envelope tamper/forgery, both end-to-end flows, cross-direction isolation) without a Bee node. **Wired live into both apps** as a `file:` dep: storefront sends the shipping address + reads tracking; CMS decrypts the address + sends the tracking code — each delegating to the library when ContactRegistry (`VITE_CONTACT_REGISTRY`) + a full Bee node (`VITE_BEE_URL`) + postage batch (`VITE_POSTAGE_BATCH_ID`) + the locally-unlocked private key are present, and otherwise returning a graceful stub. `BeeTransport` is constructed only behind that gate; private keys are unlocked at runtime (never committed/env'd). Real PSS transport still needs a full Bee node (not a gateway).
 
@@ -219,6 +226,9 @@ freemarket/
 ├── apps/
 │   ├── storefront/         # White-label Vite template (clone per shop)
 │   └── cms/                # Merchant admin app
+├── scripts/                # ✅ Built — ops scripts: deploy-frontend.mjs (per-shop Swarm + ENS pipeline) + unit test
+├── docs/
+│   └── DEPLOY.md           # per-shop Swarm + ENS deploy walkthrough (§8)
 ├── CLAUDE.md               # this spec
 └── Makefile                # build / test / deploy (adapt from SwarmChat)
 ```
