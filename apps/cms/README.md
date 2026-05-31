@@ -3,7 +3,7 @@
 Shared merchant back-office — **one app for all shops**. The merchant connects
 their own wallet and that address *is* their seller address (no per-shop build,
 unlike the storefront). It talks only to the Marketplace contract on Gnosis +
-Swarm + (stubbed) PSS. Same stack as the storefront: Vite + React + wagmi v2 +
+Swarm + live PSS (via `@freemarket/messaging`). Same stack as the storefront: Vite + React + wagmi v2 +
 viem + @tanstack/react-query + @ethersphere/bee-js + lucide-react +
 @freemarket/schema.
 
@@ -43,6 +43,14 @@ placed in env (it lives only in a local keystore; see §5).
 | `VITE_BEE_URL` | for uploads | `http://localhost:1633` | Bee node base URL. Used for reads **and writes**. **Writes need a real, writeable Bee node — NOT a public gateway** (gateways reject uploads). Get one via Bee or the Freedom Browser bundle. |
 | `VITE_POSTAGE_BATCH_ID` | for uploads | — | Swarm postage batch ("stamp") that pays for storage (CLAUDE.md §5). Unset ⇒ uploads disabled + an in-UI warning. Create one with `bee.createPostageBatch(amount, depth)` (helper in `src/lib/swarmWrite.js`) or the Bee API / Swarm dashboard, then paste the batch id. Not a secret, but per-node. |
 | `VITE_KNOWN_TOKENS` | no | — | Optional comma-separated accepted-token addresses to seed the listing token picker. Each is still verified against the on-chain `acceptedTokens` allowlist before use. |
+| `VITE_CONTACT_REGISTRY` | for tracking send | — | SwarmChat `ContactRegistry` address — resolves the **buyer's** ECIES public key when sending a shipment-update / tracking code (seller→buyer, CLAUDE.md §5). Unset / no entry ⇒ tracking-send falls back to a stub. Reading the buyer's **address** does NOT need this — only your unlocked private key. Confirm the registry ABI/selector in `src/lib/contactRegistry.js`. |
+
+> **The merchant's ECIES decryption PRIVATE KEY is intentionally NOT an env var.**
+> Putting it in `VITE_*` would bake it into the client bundle. Instead, unlock it
+> at runtime via the **"Unlock decryption key"** field in the Orders tab — it is
+> held only in React state (optionally this tab's `sessionStorage`, never
+> `localStorage` by default), never logged, never sent anywhere. Run the CMS
+> locally so the key + decrypted plaintext addresses never leave your machine.
 
 ## Features (tabs)
 
@@ -56,8 +64,15 @@ placed in env (it lives only in a local keystore; see §5).
   `updateListing` (incl. active toggle).
 - **Orders** — escrow dashboard from `OrderFunded` logs (seller == you) + live
   `orders(orderId)` state, token-formatted amounts. Per order:
-  - **Decrypt shipping address** — calls the PSS receive/decrypt boundary
-    (**stubbed**; see below).
+  - **Unlock decryption key** — paste your ECIES private key (runtime-only,
+    local; see the note above) to enable address decryption.
+  - **Decrypt shipping address** — **live** PSS receive + ECIES decrypt via
+    `@freemarket/messaging`: reads the buyer→seller topic, verifies the signed
+    envelope's signer == this order's buyer, decrypts with your unlocked key.
+    Graceful stub when the key / a full Bee node is missing.
+  - **Send tracking code** — **live** seller→buyer shipment update: resolve the
+    buyer's key via ContactRegistry, encrypt the `{ carrier?, trackingCode?,
+    note? }`, sign with your wallet, deliver over PSS. Stub when unconfigured.
   - **claimAfterTimeout** (when the auto-release window has elapsed),
     **openDispute**, and arbiter-only **resolveDispute** (shown only when your
     wallet == contract `owner()`).
@@ -72,7 +87,11 @@ placed in env (it lives only in a local keystore; see §5).
 - [x] Order dashboard: watch `OrderFunded`, surface state, decrypt action.
 - [x] Handle disputes (open / arbiter-resolve) + `claimAfterTimeout`.
 - [x] Mark shipped (off-chain local memo — no on-chain shipped state).
-- [ ] **PSS decrypt is STUBBED** at a clean boundary (`src/messaging/index.js`,
-      `receiveDecryptedAddress`). Swapping in `@freemarket/messaging` (ported
-      SwarmChat `lib/`) is a one-file change. Until then it returns
-      `{ decrypted: false, stub: true }`.
+- [x] **PSS messaging wired live** at `src/messaging/index.js`:
+      `receiveDecryptedAddress` (decrypt the buyer's address with your unlocked
+      ECIES key) and `sendShipmentUpdateFromCms` (send a tracking code back to
+      the buyer, encrypted to their ContactRegistry key + signed by your wallet),
+      both delegating to `@freemarket/messaging`. `BeeTransport` is constructed
+      only behind the config gate; private key unlocked at runtime, never
+      committed/env'd. Graceful stub (`{ stub: true }`) when unconfigured. Real
+      PSS needs a full Bee node on both ends.

@@ -25,6 +25,21 @@ export const RPC_URL = envOr('VITE_RPC_URL', 'https://rpc.gnosischain.com');
 export const BEE_URL = envOr('VITE_BEE_URL', 'https://api.gateway.ethswarm.org');
 export const SHOP_METADATA = envOr('VITE_SHOP_METADATA', '');
 
+/**
+ * SwarmChat ContactRegistry address — resolves a party's published ECIES public
+ * key on-chain (CLAUDE.md §5). When unset, the encrypted-shipping/tracking flow
+ * is UNCONFIGURED and the messaging boundary gracefully returns its stub result.
+ */
+export const CONTACT_REGISTRY = envOr('VITE_CONTACT_REGISTRY', '');
+
+/**
+ * Postage batch ("stamp") for the buyer's own Bee node — REQUIRED to send the
+ * encrypted address over PSS via `BeeTransport`. The buyer needs a writeable
+ * full Bee node + batch (same caveat as the CMS, CLAUDE.md §5). NOT a secret,
+ * but per-node; when unset the messaging boundary falls back to its stub.
+ */
+export const POSTAGE_BATCH_ID = envOr('VITE_POSTAGE_BATCH_ID', '');
+
 /** Gnosis Chain id — the escrow contract lives here regardless of ENS chain. */
 export const GNOSIS_CHAIN_ID = 100;
 

@@ -6,8 +6,9 @@
  *   2. Approve the listing's ERC-20 for the marketplace if allowance < price.
  *   3. `buy(listingId)` → wait for receipt → parse `OrderFunded` for orderId.
  *   4. Collect a shipping address and hand it to the messaging boundary
- *      (`sendEncryptedAddress`) — currently a STUB that returns
- *      { delivered: false } pending @freemarket/messaging (CLAUDE.md §5).
+ *      (`sendEncryptedAddress`) — LIVE via @freemarket/messaging when a Bee node
+ *      + postage batch + ContactRegistry are configured, else a graceful stub
+ *      ({ delivered: false }) so checkout still completes (CLAUDE.md §5).
  *
  * All on-chain writes use wagmi `useWriteContract` + `useWaitForTransactionReceipt`.
  * Real tx hashes link to gnosisscan; real errors surface inline.
@@ -19,17 +20,19 @@ import {
   useReadContract,
   useWriteContract,
   usePublicClient,
+  useWalletClient,
 } from 'wagmi';
 import { parseEventLogs } from 'viem';
 import { ShoppingBag, X, Check, Lock, Wallet, Truck, ArrowRight, AlertTriangle } from 'lucide-react';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { erc20Abi } from '../abi/erc20.js';
-import { sendEncryptedAddress } from '../messaging/index.js';
+import { sendEncryptedAddress, receiveTracking, makeSignDigest } from '../messaging/index.js';
 import {
   MARKETPLACE_ADDRESS,
   GNOSIS_CHAIN_ID,
   EXPLORER_URL,
   BEE_URL,
+  POSTAGE_BATCH_ID,
 } from '../config.js';
 import { Pill } from '../ui.jsx';
 
@@ -87,6 +90,7 @@ export default function Checkout({ shop, item, onClose }) {
   const { address, isConnected } = useAccount();
   const { connect, connectors, isPending: connecting, error: connectError } = useConnect();
   const publicClient = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
+  const { data: walletClient } = useWalletClient({ chainId: GNOSIS_CHAIN_ID });
 
   // phase: connect → approve → buy → address → done
   const [phase, setPhase] = useState('connect');
@@ -98,6 +102,13 @@ export default function Checkout({ shop, item, onClose }) {
   const [name, setName] = useState('');
   const [shipTo, setShipTo] = useState('');
   const [deliveryResult, setDeliveryResult] = useState(null);
+
+  // Buyer-side tracking read (seller→buyer). The buyer's ECIES private key is
+  // unlocked LOCALLY here — held only in React state, never persisted or sent.
+  const [trackKey, setTrackKey] = useState('');
+  const [trackBusy, setTrackBusy] = useState(false);
+  const [trackResult, setTrackResult] = useState(null);
+  const [trackError, setTrackError] = useState(null);
 
   const { writeContractAsync } = useWriteContract();
 
@@ -191,13 +202,19 @@ export default function Checkout({ shop, item, onClose }) {
     setBusy(true);
     setActionError(null);
     try {
-      // Real boundary — swapping in @freemarket/messaging is a one-file change.
+      // LIVE boundary: resolves the seller's ECIES key via ContactRegistry and
+      // sends over PSS when a Bee node + batch are configured; else stub.
+      const signMessage =
+        walletClient && address ? makeSignDigest(walletClient, address) : undefined;
       const result = await sendEncryptedAddress({
         orderId,
+        buyer: address,
         seller: shop.seller,
-        // sellerPubKey: resolved from ContactRegistry in the real impl.
         address: { name, address: shipTo },
+        publicClient,
+        signMessage,
         beeUrl: BEE_URL,
+        postageBatchId: POSTAGE_BATCH_ID,
       });
       setDeliveryResult(result);
       setPhase('done');
@@ -205,6 +222,25 @@ export default function Checkout({ shop, item, onClose }) {
       setActionError(err);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function doReadTracking() {
+    setTrackBusy(true);
+    setTrackError(null);
+    try {
+      const result = await receiveTracking({
+        orderId,
+        buyer: address,
+        seller: shop.seller,
+        recipientPrivateKey: trackKey.trim() || undefined,
+        beeUrl: BEE_URL,
+      });
+      setTrackResult(result);
+    } catch (err) {
+      setTrackError(err);
+    } finally {
+      setTrackBusy(false);
     }
   }
 
@@ -296,11 +332,52 @@ export default function Checkout({ shop, item, onClose }) {
                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', color: 'var(--muted)', fontSize: 12.5, lineHeight: 1.5 }}>
                   <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1, color: 'var(--accent2)' }} />
                   <span>
-                    <strong>PSS delivery pending.</strong> The escrow is real, but encrypted-address delivery is stubbed
-                    (<code>delivered: false</code>) until <code>@freemarket/messaging</code> lands (CLAUDE.md §5). The
-                    address was validated and would be ECIES-encrypted and sent over Swarm PSS to the seller's key.
+                    <strong>PSS delivery unconfigured.</strong> The escrow is real, but encrypted-address delivery fell
+                    back to a stub (<code>delivered: false</code>) — the seller's ECIES key (ContactRegistry), a full Bee
+                    node, or a postage batch is missing (CLAUDE.md §5). Once configured, the address is ECIES-encrypted
+                    and sent over Swarm PSS to the seller's key via <code>@freemarket/messaging</code>.
                   </span>
                 </div>
+              </div>
+            )}
+
+            {/* Track order — buyer reads the seller's encrypted shipment update. */}
+            {orderId != null && (
+              <div style={{ marginTop: 16, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border)', textAlign: 'left' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <Truck size={15} style={{ color: 'var(--accent)' }} />
+                  <span style={{ fontFamily: 'var(--display)', fontSize: 16 }}>Track order #{orderId.toString()}</span>
+                </div>
+                <div style={{ color: 'var(--muted)', fontSize: 12, lineHeight: 1.5, marginBottom: 8 }}>
+                  Once the shop ships, they send an encrypted tracking code over Swarm PSS. Unlock with your
+                  ECIES private key (held locally, never sent) to read it. Requires your own full Bee node.
+                </div>
+                <input
+                  type="password"
+                  placeholder="Your ECIES private key (0x…) — local only"
+                  value={trackKey}
+                  onChange={(e) => setTrackKey(e.target.value)}
+                  autoComplete="off"
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'ui-monospace, monospace', fontSize: 12, marginBottom: 8 }}
+                />
+                <PrimaryButton onClick={doReadTracking} disabled={trackBusy}>
+                  {trackBusy ? 'Reading…' : 'Read tracking'} <ArrowRight size={16} />
+                </PrimaryButton>
+                {trackResult?.decrypted && trackResult.update && (
+                  <div style={{ marginTop: 10, fontSize: 13, color: 'var(--text)', lineHeight: 1.6 }}>
+                    {trackResult.update.carrier && <div><strong>Carrier:</strong> {trackResult.update.carrier}</div>}
+                    {trackResult.update.trackingCode && <div><strong>Tracking:</strong> <code>{trackResult.update.trackingCode}</code></div>}
+                    {trackResult.update.note && <div><strong>Note:</strong> {trackResult.update.note}</div>}
+                  </div>
+                )}
+                {trackResult && !trackResult.decrypted && (
+                  <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--muted)' }}>
+                    {trackResult.stub
+                      ? 'Tracking read is unconfigured (need your private key + a full Bee node).'
+                      : 'Nothing yet — the shop has not sent a tracking code for this order.'}
+                  </div>
+                )}
+                <ErrorNote error={trackError} />
               </div>
             )}
           </div>

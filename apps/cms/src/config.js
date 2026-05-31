@@ -30,6 +30,16 @@ export const BEE_URL = envOr('VITE_BEE_URL', 'http://localhost:1633');
 /** Postage batch ("stamp") — required for any Swarm upload. */
 export const POSTAGE_BATCH_ID = envOr('VITE_POSTAGE_BATCH_ID', '');
 
+/**
+ * SwarmChat ContactRegistry address — resolves a party's published ECIES public
+ * key on-chain (CLAUDE.md §5). The CMS uses it to resolve the BUYER's key when
+ * sending a shipment-update / tracking code. When unset, that reply flow is
+ * UNCONFIGURED and the messaging boundary gracefully returns its stub result.
+ * (Reading the buyer's address does NOT need the registry — only the seller's
+ * unlocked PRIVATE key.)
+ */
+export const CONTACT_REGISTRY = envOr('VITE_CONTACT_REGISTRY', '');
+
 /** Optional known accepted-token addresses to seed the listing token picker. */
 export const KNOWN_TOKENS = envOr('VITE_KNOWN_TOKENS', '')
   .split(',')
