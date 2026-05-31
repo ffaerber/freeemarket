@@ -8,19 +8,23 @@
  * pull and decrypt it so the merchant can ship (CLAUDE.md §5).
  *
  * ──────────────────────────────────────────────────────────────────────────
- * REAL FLOW (to implement when @freemarket/messaging — the ported SwarmChat
- * lib/ — lands; see packages/messaging in CLAUDE.md §10):
+ * REAL FLOW — now backed by `@freemarket/messaging` (packages/messaging).
+ * This stub delegates to that library's `receiveShippingAddress(...)` once the
+ * prerequisites below are wired; until then it returns the stub result so the
+ * order dashboard still renders with no Bee node configured.
  *
- *   1. Listen on the PSS topic for this seller (and/or read the seller's
- *      per-recipient Swarm feed, the store-and-forward mailbox SwarmChat writes
- *      to) for an envelope tagged with `orderId`.
- *   2. Verify the SIGNED envelope (SwarmChat `lib/envelope.ts`): the recovered
- *      signer MUST equal the on-chain `order.buyer` for this `orderId`. Reject
- *      anything else — this is what binds an incoming address to a paid order.
- *   3. ECIES-DECRYPT the ciphertext with the SELLER's PRIVATE key using
- *      `eciesjs` (MetaMask's native eth_decrypt / eth_getEncryptionPublicKey
- *      are DEPRECATED — do not use them).
- *   4. Return `{ decrypted: true, stub: false, address: { name, address } }`.
+ *   1. `@freemarket/messaging` reads the buyer→seller PSS topic / the seller's
+ *      store-and-forward feed (via `BeeTransport`) for envelopes tagged `orderId`.
+ *   2. It verifies the SIGNED envelope: the recovered signer MUST equal the
+ *      on-chain `order.buyer` (`expectedFrom: buyer`). Forgeries are rejected —
+ *      this binds an incoming address to a paid order.
+ *   3. It ECIES-DECRYPTS the ciphertext with the SELLER's PRIVATE key (eciesjs —
+ *      MetaMask's native eth_decrypt / eth_getEncryptionPublicKey are DEPRECATED).
+ *   4. Returns `{ decrypted: true, address: { orderId, name, address } }`.
+ *
+ * SYMMETRIC REPLY: after shipping, the CMS sends a tracking code back to the
+ * buyer via `@freemarket/messaging`'s `sendShipmentUpdate(...)` (seller→buyer),
+ * signed by the seller and ECIES-encrypted to the buyer's key — same machinery.
  *
  * KEY CUSTODY (CLAUDE.md §5 caveats): the decryption PRIVATE KEY belongs to the
  * merchant and lives ONLY on the merchant's machine. It must NEVER be committed,
@@ -68,11 +72,11 @@ export async function receiveDecryptedAddress({
     throw new Error('receiveDecryptedAddress: beeUrl is required');
   }
 
-  // TODO(messaging): replace this stub with the real PSS/feed read → envelope
-  // signature verification (sender == order.buyer) → ECIES-decrypt with the
-  // SELLER's private key, as described above. This is a one-file swap once
-  // @freemarket/messaging (packages/messaging, ported from SwarmChat lib/) is
-  // available. See CLAUDE.md §5 and §10.
+  // TODO(messaging): delegate to `@freemarket/messaging`'s receiveShippingAddress
+  // once a Bee node (BeeTransport) and the merchant's ECIES private key (from a
+  // local keystore the merchant unlocks) are wired here. The library is built
+  // and tested (envelope verification + ECIES decrypt); this is the remaining
+  // app-side glue. See CLAUDE.md §5 and §10.
   console.info(
     '[messaging:STUB] would read PSS/feed, verify signed envelope sender == order.buyer, then ECIES-decrypt with the merchant private key',
     {

@@ -98,6 +98,9 @@ Recommended flow, reusing SwarmChat:
 3. **Buyer sends address** — encrypt `{ orderId, name, address }` to the seller's PSS key (ECIES), send over PSS using SwarmChat's `lib/transport.ts` + `envelope.ts`. The signed envelope lets the seller verify the sender == `order.buyer` on-chain.
 4. **Offline delivery** — message is also written to the per-recipient Swarm feed (SwarmChat's store-and-forward), so an offline shop still receives it.
 5. **Fulfillment** — CMS decrypts with the seller's private key, ships, buyer calls `confirmReceipt`, escrow releases.
+6. **Tracking reply (seller → buyer)** — after shipping, the seller sends a tracking code `{ orderId, carrier?, trackingCode?, note? }` back to the buyer over the SAME machinery: ECIES-encrypted to the buyer's key, signed envelope (buyer verifies signer == `order.seller`), delivered over PSS + the buyer's feed.
+
+> ✅ **Built:** `packages/messaging` (`@freemarket/messaging`) implements this flow **bidirectionally** — `sendShippingAddress`/`receiveShippingAddress` (buyer→seller) and `sendShipmentUpdate`/`receiveShipmentUpdate` (seller→buyer tracking) — with ECIES (eciesjs), signed envelopes (viem) carrying the on-chain sender check, and a pluggable transport (`BeeTransport` for real PSS+feeds, `InMemoryTransport` for tests). The storefront/CMS stubs now point at it and delegate once a Bee node + postage batch, counterparty key resolution (ContactRegistry), and the merchant keystore key are wired (app-side glue remaining). The real PSS transport needs a full Bee node.
 
 ### Caveats (record these)
 - **Both parties need a full Bee node** to use PSS (not a gateway). Freedom Browser bundles one. This is the main UX friction for casual buyers.
@@ -173,9 +176,10 @@ Reuse SwarmChat's `make deploy-frontend` per shop:
 3. ~~**Decide identity model** — delegate keys/comms to `ContactRegistry` + PSS, then strip `encryptionPubKey`/`shippingRef` from `Marketplace`.~~ ✅ Done — delegated to SwarmChat; contract is now pure escrow + listings.
 4. ~~**Confirm token** — Gnosis USDC address or commit to xDAI; set in deploy script.~~ ✅ Done — replaced the single hardcoded token with an owner-curated `acceptedTokens` allowlist + per-listing token choice (multi-token escrow). The deploy script (`contracts/script/Deploy.s.sol`) seeds the allowlist — defaulting to Gnosis WXDAI + bridged USDC, overridable via the `TOKENS` env — and the owner can add/remove tokens later via `setTokenAccepted`. No single token is hardcoded.
 5. **Storefront (real)** — port template, wire contract + Swarm + PSS.
-6. ~~**CMS / admin** — shop registration, listing CRUD + Swarm image upload, order dashboard (watch `OrderFunded`, pull + decrypt PSS address), mark shipped, disputes.~~ ✅ Done (`apps/cms`) — built on the storefront's stack (Vite + wagmi v2 + viem + bee-js + `@freemarket/schema`). Shop registration (`registerShop`, schema-validated profile → Swarm), listing CRUD + Swarm image/metadata upload (per-listing accepted-token pick, decimals read on-chain via `parseUnits`), order dashboard (`OrderFunded` filtered by seller + live `orders()` state, `claimAfterTimeout`/`openDispute`/owner-only `resolveDispute`). Mark-shipped is an off-chain localStorage memo (no on-chain shipped state). **PSS decrypt is stubbed** at a clean boundary (`receiveDecryptedAddress`) — one-file swap pending `@freemarket/messaging`.
+6. ~~**CMS / admin** — shop registration, listing CRUD + Swarm image upload, order dashboard (watch `OrderFunded`, pull + decrypt PSS address), mark shipped, disputes.~~ ✅ Done (`apps/cms`) — built on the storefront's stack (Vite + wagmi v2 + viem + bee-js + `@freemarket/schema`). Shop registration (`registerShop`, schema-validated profile → Swarm), listing CRUD + Swarm image/metadata upload (per-listing accepted-token pick, decimals read on-chain via `parseUnits`), order dashboard (`OrderFunded` filtered by seller + live `orders()` state, `claimAfterTimeout`/`openDispute`/owner-only `resolveDispute`). Mark-shipped is an off-chain localStorage memo (no on-chain shipped state). PSS decrypt is stubbed at a clean boundary (`receiveDecryptedAddress`) but now backed by `@freemarket/messaging` (built — see step 9 below); the swap-in is gated only on app-side glue (Bee node + postage batch, key resolution, merchant keystore).
 7. **Deploy** — per-shop Swarm + ENS pipeline.
 8. **Audit** — before any real funds on mainnet.
+9. ~~**Messaging lib** (`packages/messaging`, `@freemarket/messaging`) — encrypted PSS messaging.~~ ✅ Done — **bidirectional**: buyer→seller shipping address AND seller→buyer tracking code, on shared machinery (ECIES via eciesjs + signed envelopes via viem with on-chain sender verification, `BeeTransport` for real PSS+feeds / `InMemoryTransport` for tests). Unit-tested (crypto round-trip, envelope tamper/forgery, both end-to-end flows, cross-direction isolation) without a Bee node. Wired into both apps as a `file:` dep; the storefront/CMS stubs delegate to it once a Bee node + postage batch, ContactRegistry key resolution, and the merchant keystore key are configured. Real PSS transport still needs a full Bee node (not a gateway).
 
 ---
 
@@ -186,7 +190,7 @@ freemarket/
 ├── contracts/              # Foundry — Marketplace.sol, tests, deploy script
 ├── packages/
 │   ├── schema/             # Shared TS types + JSON Schema (§6)
-│   └── messaging/          # SwarmChat lib reuse (envelope, transport, feeds) — or git submodule
+│   └── messaging/          # ✅ Built — `@freemarket/messaging`: ECIES + signed envelopes + PSS/feed transport (bidirectional)
 ├── apps/
 │   ├── storefront/         # White-label Vite template (clone per shop)
 │   └── cms/                # Merchant admin app

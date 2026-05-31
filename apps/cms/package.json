@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@ethersphere/bee-js": "^8.3.1",
+    "@freemarket/messaging": "file:../../packages/messaging",
     "@freemarket/schema": "file:../../packages/schema",
     "@tanstack/react-query": "^5.59.0",
     "eciesjs": "^0.4.11",
