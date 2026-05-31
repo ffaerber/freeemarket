@@ -154,6 +154,15 @@ interface ListingMetadata {
   // price is ON-CHAIN (USDC 6-dp), not here.
   // stock/quantity is ALSO ON-CHAIN (listings(id).stock — a unit count
   // decremented by buy()), NOT duplicated here (would drift), mirroring price.
+
+  // --- Product variant grouping (OFF-CHAIN, optional, additive in v1) ---
+  // Each variant stays its own on-chain Listing (own price + own on-chain stock);
+  // these fields only tell the storefront/CMS to render multiple pack sizes /
+  // variants of one product under ONE card with a variant selector. NO contract change.
+  productId?: string;      // stable key shared by all variants of one product (per shop);
+                           //   absent ⇒ standalone product (group of one).
+  variantLabel?: string;   // selector label for THIS variant; fallback variantLabel → variant → title.
+  variantOf?: string;      // optional group-header product name; absent ⇒ first variant's title.
 }
 ```
 
@@ -170,6 +179,8 @@ To productionize:
 - Replace mock `listings` with on-chain reads (filter `ListingCreated`/`listings` by shop's seller address) + Swarm metadata fetch.
 - Wire the checkout: `usdc.approve` → `market.buy` → encrypt address + PSS send (reuse SwarmChat `lib/`).
 - Replace glyph placeholders with Swarm-hosted images.
+
+**Variant grouping (built).** Listings sharing an OFF-CHAIN `productId` (see §6) render as ONE product card with a variant selector instead of separate cards; price + stock stay ON-CHAIN per variant. `useListings`/`useMyListings` surface `productId`/`variantLabel` and a pure `groupListings()` helper collapses the flat list into groups (`{ productId, title, variants }`, price-sorted). The card shows a price range; the modal's selector switches price/stock/images and re-targets the Buy at that variant's `listingId`; a fully-sold-out group shows "Sold out"; a group of one renders exactly as before (no selector). The CMS create/edit forms let the seller set `productId` + `variantLabel`. No contract change.
 
 ---
 

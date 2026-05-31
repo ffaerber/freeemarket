@@ -80,7 +80,7 @@ export default function ListingsSection() {
       )}
       {error && <Banner tone="error">Couldn't load listings: {error.shortMessage || error.message}</Banner>}
 
-      <CreateListing disabled={!registered || UPLOADS_DISABLED} onCreated={refetch} />
+      <CreateListing disabled={!registered || UPLOADS_DISABLED} onCreated={refetch} myListings={listings} />
 
       <div style={{ marginTop: 24 }}>
         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: 'var(--muted)' }}>
@@ -101,7 +101,7 @@ export default function ListingsSection() {
 }
 
 /** The create-listing form. */
-function CreateListing({ disabled, onCreated }) {
+function CreateListing({ disabled, onCreated, myListings = [] }) {
   const publicClient = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
   const { writeContractAsync } = useWriteContract();
   const tokenCheck = useAcceptedToken();
@@ -109,6 +109,10 @@ function CreateListing({ disabled, onCreated }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [variant, setVariant] = useState('');
+  // Product variant grouping (OFF-CHAIN metadata; CLAUDE.md §6): listings that
+  // share a productId group into one storefront card with a variant selector.
+  const [productId, setProductId] = useState('');
+  const [variantLabel, setVariantLabel] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [price, setPrice] = useState('');
@@ -134,10 +138,14 @@ function CreateListing({ disabled, onCreated }) {
   }
 
   function reset() {
-    setTitle(''); setVariant(''); setDescription(''); setCategory('');
+    setTitle(''); setVariant(''); setProductId(''); setVariantLabel('');
+    setDescription(''); setCategory('');
     setPrice(''); setStock(''); setImages([]); setTxHash(null);
     tokenCheck.setToken('');
   }
+
+  /** Existing productIds in this shop, for the "reuse to group" convenience. */
+  const existingProductIds = [...new Set(myListings.map((l) => l.productId).filter(Boolean))];
 
   async function onCreate() {
     setBusy(true);
@@ -157,6 +165,10 @@ function CreateListing({ disabled, onCreated }) {
       // Assemble + validate ListingMetadata.
       const meta = { version: 1, title: title.trim(), images };
       if (variant.trim()) meta.variant = variant.trim();
+      // Variant grouping (OFF-CHAIN): shared productId groups pack sizes of one
+      // product; variantLabel is the selector label. Price + stock stay on-chain.
+      if (productId.trim()) meta.productId = productId.trim();
+      if (variantLabel.trim()) meta.variantLabel = variantLabel.trim();
       if (description.trim()) meta.description = description.trim();
       if (category.trim()) meta.category = category.trim();
       // payment hint: canonical token/price stay on-chain; this aids rendering.
@@ -209,6 +221,22 @@ function CreateListing({ disabled, onCreated }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
         <Field label="Title"><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Strawberries" /></Field>
         <Field label="Variant" hint="e.g. 100 g jar"><Input value={variant} onChange={(e) => setVariant(e.target.value)} placeholder="100 g jar" /></Field>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <Field
+          label="Product ID (optional)"
+          hint="Give pack sizes of the SAME product the SAME Product ID to group them under one storefront card."
+        >
+          <Input value={productId} onChange={(e) => setProductId(e.target.value)} placeholder="sunny-strawberries" list="existing-product-ids" />
+          {existingProductIds.length > 0 && (
+            <datalist id="existing-product-ids">
+              {existingProductIds.map((p) => <option key={p} value={p} />)}
+            </datalist>
+          )}
+        </Field>
+        <Field label="Variant label (optional)" hint="Shown in the storefront variant selector, e.g. “6-pack”. Falls back to Variant, then Title.">
+          <Input value={variantLabel} onChange={(e) => setVariantLabel(e.target.value)} placeholder="100 g jar" />
+        </Field>
       </div>
       <Field label="Description"><Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
@@ -292,6 +320,9 @@ function ListingRow({ listing, onChanged }) {
   const [stock, setStock] = useState(String(listing.stockCount ?? 0)); // unit COUNT; 0 allowed on edit
   const [title, setTitle] = useState(listing.title);
   const [description, setDescription] = useState(listing.description || '');
+  // OFF-CHAIN variant-grouping fields (CLAUDE.md §6); price/stock stay on-chain.
+  const [productId, setProductId] = useState(listing.productId || '');
+  const [variantLabel, setVariantLabel] = useState(listing.variantLabel || '');
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
 
@@ -331,6 +362,10 @@ function ListingRow({ listing, onChanged }) {
       // Rebuild metadata from the existing fields + edited title/description.
       const meta = { version: 1, title: title.trim(), images: listing.images };
       if (listing.variant) meta.variant = listing.variant;
+      // Preserve / update the OFF-CHAIN grouping fields (edited below).
+      if (productId.trim()) meta.productId = productId.trim();
+      if (variantLabel.trim()) meta.variantLabel = variantLabel.trim();
+      if (listing.variantOf) meta.variantOf = listing.variantOf;
       if (description.trim()) meta.description = description.trim();
       if (listing.category) meta.category = listing.category;
       if (listing.attributes && Object.keys(listing.attributes).length) meta.attributes = listing.attributes;
@@ -379,6 +414,7 @@ function ListingRow({ listing, onChanged }) {
               : <Pill>sold out</Pill>}
             {' '}
             {listing.active ? <Pill tone="accent2">active</Pill> : <Pill>inactive</Pill>}
+            {listing.productId && <> <Pill>group: {listing.productId}</Pill></>}
             {!listing.hasMetadata && <span style={{ color: '#ff6b6b', marginLeft: 8 }}>metadata unreadable</span>}
           </div>
         </div>
@@ -398,6 +434,14 @@ function ListingRow({ listing, onChanged }) {
           {UPLOADS_DISABLED && <Banner>Saving edits re-uploads metadata to Swarm — needs a postage batch.</Banner>}
           <Field label="Title"><Input value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
           <Field label="Description"><Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <Field label="Product ID" hint="Same ID across pack sizes groups them on the storefront.">
+              <Input value={productId} onChange={(e) => setProductId(e.target.value)} placeholder="sunny-strawberries" />
+            </Field>
+            <Field label="Variant label" hint="Shown in the storefront variant selector.">
+              <Input value={variantLabel} onChange={(e) => setVariantLabel(e.target.value)} placeholder="100 g jar" />
+            </Field>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <Field label={`Price (${listing.symbol}, ${listing.decimals} decimals)`}>
               <Input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" />

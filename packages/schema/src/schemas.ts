@@ -91,6 +91,12 @@ export const listingMetadataSchema: SchemaObject = {
     },
     // Display hint only; on-chain token/price remain authoritative.
     payment: { $ref: 'https://freemarket.eth/schema/payment-hint.json' },
+    // Product variant grouping (OFF-CHAIN, optional, additive in v1). Each
+    // variant stays its own on-chain Listing; these only drive how the
+    // storefront/CMS group + label variants under one card. See ./index.ts.
+    productId: { type: 'string' },
+    variantLabel: { type: 'string' },
+    variantOf: { type: 'string' },
   },
 };
 

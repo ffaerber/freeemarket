@@ -119,12 +119,62 @@ async function loadListings(client) {
         images: Array.isArray(meta?.images) ? meta.images : [],
         category: meta?.category || '',
         attributes: meta?.attributes || {},
+        // Product variant grouping (OFF-CHAIN metadata; CLAUDE.md §6). price +
+        // stock above stay ON-CHAIN per variant. `variantLabel` is the selector
+        // label, falling back variant → title. `productId` keys the group;
+        // `variantOf` is an optional group header override.
+        productId: meta?.productId || '',
+        variantLabel: meta?.variantLabel || meta?.variant || meta?.title || `Listing #${id}`,
+        variantOf: meta?.variantOf || '',
         hasMetadata: Boolean(meta),
       };
     }),
   );
 
   return results.filter(Boolean).sort((a, b) => Number(a.id - b.id));
+}
+
+/**
+ * Group a flat listings array into product groups for the storefront UI.
+ *
+ * Pure function (no chain/IO) so it's trivially unit-testable. The on-chain /
+ * off-chain split stays crisp: grouping + labels come from OFF-CHAIN metadata
+ * (`productId`/`variantLabel`/`variantOf`), while each variant keeps its own
+ * ON-CHAIN price + stock.
+ *
+ * Listings sharing a non-empty `productId` collapse into one group; a listing
+ * without a `productId` is its own group (group of one), keyed by its id so the
+ * non-grouped path renders exactly as before.
+ *
+ * @param {Array} listings normalized listings (from loadListings)
+ * @returns {Array<{ productId: string, title: string, variants: Array }>}
+ *   variants sorted by price ascending. Group order follows first appearance.
+ */
+export function groupListings(listings) {
+  const groups = new Map();
+  for (const l of listings || []) {
+    // Standalone listings get a synthetic, collision-proof key so each is its
+    // own group; real shared productIds collapse together.
+    const key = l.productId ? `pid:${l.productId}` : `id:${l.id.toString()}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(l);
+  }
+  return [...groups.entries()].map(([key, variants]) => {
+    // Cheapest variant first; ties keep stable id order.
+    const sorted = [...variants].sort((a, b) => {
+      if (a.price === b.price) return Number(a.id - b.id);
+      return a.price < b.price ? -1 : 1;
+    });
+    const first = sorted[0];
+    // Group title: explicit variantOf wins, else the first variant's title.
+    const title = sorted.find((v) => v.variantOf)?.variantOf || first.title;
+    return {
+      key,
+      productId: first.productId || '',
+      title,
+      variants: sorted,
+    };
+  });
 }
 
 export function useListings() {
@@ -137,8 +187,10 @@ export function useListings() {
     staleTime: 60 * 1000,
   });
 
+  const listings = query.data || [];
   return {
-    listings: query.data || [],
+    listings, // flat list (kept for any code that needs it)
+    groups: groupListings(listings), // grouped by productId for the card UI
     isLoading: query.isLoading,
     error: query.error || null,
     refetch: query.refetch,
