@@ -8,6 +8,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {Marketplace} from "../src/Marketplace.sol";
 import {MockUSDC} from "./mocks/MockUSDC.sol";
+import {MockToken} from "./mocks/MockToken.sol";
 import {ReentrantToken} from "./mocks/ReentrantToken.sol";
 
 contract MarketplaceTest is Test {
@@ -25,13 +26,21 @@ contract MarketplaceTest is Test {
 
     // Mirror of the contract's events for expectEmit assertions.
     event ShopRegistered(address indexed seller, bytes32 metadata);
-    event ListingCreated(uint256 indexed id, address indexed seller, uint256 price, bytes32 metadata);
+    event TokenAccepted(address indexed token, bool accepted);
+    event ListingCreated(
+        uint256 indexed id,
+        address indexed seller,
+        address indexed token,
+        uint256 price,
+        bytes32 metadata
+    );
     event ListingUpdated(uint256 indexed id, uint256 price, bytes32 metadata, bool active);
     event OrderFunded(
         uint256 indexed orderId,
         uint256 indexed listingId,
         address indexed buyer,
         address seller,
+        address token,
         uint256 amount
     );
     event OrderCompleted(uint256 indexed orderId, uint256 payout, uint256 fee);
@@ -39,11 +48,13 @@ contract MarketplaceTest is Test {
     event DisputeOpened(uint256 indexed orderId, address indexed by);
     event FeeUpdated(uint16 feeBps);
     event AutoReleasePeriodUpdated(uint256 period);
-    event FeesWithdrawn(address indexed to, uint256 amount);
+    event FeesWithdrawn(address indexed token, address indexed to, uint256 amount);
 
     function setUp() public virtual {
         usdc = new MockUSDC();
-        market = new Marketplace(address(usdc), owner);
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(usdc);
+        market = new Marketplace(tokens, owner);
         usdc.mint(buyer, 1_000_000_000); // 1,000 USDC
     }
 
@@ -57,7 +68,7 @@ contract MarketplaceTest is Test {
     function _listing(uint256 price) internal returns (uint256 id) {
         _registerShop();
         vm.prank(seller);
-        id = market.createListing(price, ITEM_META);
+        id = market.createListing(address(usdc), price, ITEM_META);
     }
 
     function _fund(uint256 listingId) internal returns (uint256 orderId) {
@@ -91,35 +102,79 @@ contract MarketplaceTest is Test {
         assertEq(metadata, newMeta);
     }
 
+    // --- token allowlist ---
+
+    function test_constructor_seedsAcceptedTokens() public view {
+        assertTrue(market.acceptedTokens(address(usdc)));
+    }
+
+    function test_setTokenAccepted_onlyOwner() public {
+        MockToken other = new MockToken("Other", "OTH", 18);
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger));
+        market.setTokenAccepted(address(other), true);
+    }
+
+    function test_setTokenAccepted_togglesAndEmits() public {
+        MockToken other = new MockToken("Other", "OTH", 18);
+
+        vm.expectEmit(true, false, false, true);
+        emit TokenAccepted(address(other), true);
+        vm.prank(owner);
+        market.setTokenAccepted(address(other), true);
+        assertTrue(market.acceptedTokens(address(other)));
+
+        vm.expectEmit(true, false, false, true);
+        emit TokenAccepted(address(other), false);
+        vm.prank(owner);
+        market.setTokenAccepted(address(other), false);
+        assertFalse(market.acceptedTokens(address(other)));
+    }
+
+    function test_setTokenAccepted_rejectsZeroAddress() public {
+        vm.prank(owner);
+        vm.expectRevert(bytes("token=0"));
+        market.setTokenAccepted(address(0), true);
+    }
+
     // --- listings ---
 
     function test_createListing_requiresShop() public {
         vm.prank(seller);
         vm.expectRevert(bytes("no shop"));
-        market.createListing(PRICE, ITEM_META);
+        market.createListing(address(usdc), PRICE, ITEM_META);
+    }
+
+    function test_createListing_rejectsUnacceptedToken() public {
+        _registerShop();
+        MockToken other = new MockToken("Other", "OTH", 18);
+        vm.prank(seller);
+        vm.expectRevert(bytes("token not accepted"));
+        market.createListing(address(other), PRICE, ITEM_META);
     }
 
     function test_createListing_rejectsZeroPrice() public {
         _registerShop();
         vm.prank(seller);
         vm.expectRevert(bytes("price=0"));
-        market.createListing(0, ITEM_META);
+        market.createListing(address(usdc), 0, ITEM_META);
     }
 
     function test_createListing_incrementsIdAndEmits() public {
         _registerShop();
-        vm.expectEmit(true, true, false, true);
-        emit ListingCreated(1, seller, PRICE, ITEM_META);
+        vm.expectEmit(true, true, true, true);
+        emit ListingCreated(1, seller, address(usdc), PRICE, ITEM_META);
         vm.prank(seller);
-        uint256 id1 = market.createListing(PRICE, ITEM_META);
+        uint256 id1 = market.createListing(address(usdc), PRICE, ITEM_META);
 
         vm.prank(seller);
-        uint256 id2 = market.createListing(PRICE, ITEM_META);
+        uint256 id2 = market.createListing(address(usdc), PRICE, ITEM_META);
 
         assertEq(id1, 1);
         assertEq(id2, 2);
-        (address s, uint256 price, bytes32 meta, bool active) = market.listings(id1);
+        (address s, address token, uint256 price, bytes32 meta, bool active) = market.listings(id1);
         assertEq(s, seller);
+        assertEq(token, address(usdc));
         assertEq(price, PRICE);
         assertEq(meta, ITEM_META);
         assertTrue(active);
@@ -140,7 +195,8 @@ contract MarketplaceTest is Test {
         vm.prank(seller);
         market.updateListing(id, 5_000_000, newMeta, false);
 
-        (, uint256 price, bytes32 meta, bool active) = market.listings(id);
+        (, address token, uint256 price, bytes32 meta, bool active) = market.listings(id);
+        assertEq(token, address(usdc)); // token is immutable across updates
         assertEq(price, 5_000_000);
         assertEq(meta, newMeta);
         assertFalse(active);
@@ -161,7 +217,7 @@ contract MarketplaceTest is Test {
         vm.startPrank(buyer);
         usdc.approve(address(market), PRICE);
         vm.expectEmit(true, true, true, true);
-        emit OrderFunded(1, id, buyer, seller, PRICE);
+        emit OrderFunded(1, id, buyer, seller, address(usdc), PRICE);
         uint256 orderId = market.buy(id);
         vm.stopPrank();
 
@@ -173,6 +229,7 @@ contract MarketplaceTest is Test {
             uint256 listingId,
             address oBuyer,
             address oSeller,
+            address oToken,
             uint256 amount,
             ,
             Marketplace.OrderState state
@@ -180,6 +237,7 @@ contract MarketplaceTest is Test {
         assertEq(listingId, id);
         assertEq(oBuyer, buyer);
         assertEq(oSeller, seller);
+        assertEq(oToken, address(usdc));
         assertEq(amount, PRICE);
         assertEq(uint8(state), uint8(Marketplace.OrderState.Funded));
     }
@@ -226,7 +284,7 @@ contract MarketplaceTest is Test {
 
         assertEq(usdc.balanceOf(seller), PRICE);
         assertEq(usdc.balanceOf(address(market)), 0);
-        (,,,,, Marketplace.OrderState state) = market.orders(orderId);
+        (,,,,,, Marketplace.OrderState state) = market.orders(orderId);
         assertEq(uint8(state), uint8(Marketplace.OrderState.Completed));
     }
 
@@ -291,7 +349,7 @@ contract MarketplaceTest is Test {
         emit DisputeOpened(orderId, buyer);
         vm.prank(buyer);
         market.openDispute(orderId);
-        (,,,,, Marketplace.OrderState state) = market.orders(orderId);
+        (,,,,,, Marketplace.OrderState state) = market.orders(orderId);
         assertEq(uint8(state), uint8(Marketplace.OrderState.Disputed));
     }
 
@@ -300,7 +358,7 @@ contract MarketplaceTest is Test {
         uint256 orderId = _fund(id);
         vm.prank(seller);
         market.openDispute(orderId);
-        (,,,,, Marketplace.OrderState state) = market.orders(orderId);
+        (,,,,,, Marketplace.OrderState state) = market.orders(orderId);
         assertEq(uint8(state), uint8(Marketplace.OrderState.Disputed));
     }
 
@@ -325,7 +383,7 @@ contract MarketplaceTest is Test {
 
         assertEq(usdc.balanceOf(buyer), 1_000_000_000); // made whole
         assertEq(usdc.balanceOf(address(market)), 0);
-        (,,,,, Marketplace.OrderState state) = market.orders(orderId);
+        (,,,,,, Marketplace.OrderState state) = market.orders(orderId);
         assertEq(uint8(state), uint8(Marketplace.OrderState.Refunded));
     }
 
@@ -339,7 +397,7 @@ contract MarketplaceTest is Test {
         market.resolveDispute(orderId, false);
 
         assertEq(usdc.balanceOf(seller), PRICE);
-        (,,,,, Marketplace.OrderState state) = market.orders(orderId);
+        (,,,,,, Marketplace.OrderState state) = market.orders(orderId);
         assertEq(uint8(state), uint8(Marketplace.OrderState.Completed));
     }
 
@@ -389,7 +447,7 @@ contract MarketplaceTest is Test {
         market.confirmReceipt(orderId);
 
         assertEq(usdc.balanceOf(seller), expectedPayout);
-        assertEq(market.accruedFees(), expectedFee);
+        assertEq(market.accruedFees(address(usdc)), expectedFee);
         assertEq(usdc.balanceOf(address(market)), expectedFee);
     }
 
@@ -406,7 +464,7 @@ contract MarketplaceTest is Test {
 
         vm.prank(buyer);
         market.confirmReceipt(orderId);
-        assertEq(market.accruedFees(), 0);
+        assertEq(market.accruedFees(address(usdc)), 0);
         assertEq(usdc.balanceOf(seller), 9_999);
     }
 
@@ -447,29 +505,159 @@ contract MarketplaceTest is Test {
         vm.prank(buyer);
         market.confirmReceipt(orderId);
 
-        uint256 fee = market.accruedFees();
+        uint256 fee = market.accruedFees(address(usdc));
         assertGt(fee, 0);
 
-        vm.expectEmit(true, false, false, true);
-        emit FeesWithdrawn(owner, fee);
+        vm.expectEmit(true, true, false, true);
+        emit FeesWithdrawn(address(usdc), owner, fee);
         vm.prank(owner);
-        market.withdrawFees(owner);
+        market.withdrawFees(address(usdc), owner);
 
-        assertEq(market.accruedFees(), 0);
+        assertEq(market.accruedFees(address(usdc)), 0);
         assertEq(usdc.balanceOf(owner), fee);
     }
 
     function test_withdrawFees_rejectsZeroAddress() public {
         vm.prank(owner);
         vm.expectRevert(bytes("to=0"));
-        market.withdrawFees(address(0));
+        market.withdrawFees(address(usdc), address(0));
+    }
+
+    // --- multi-token behaviour ---
+
+    /// A listing priced in a second (18-decimal) token can be bought, settled,
+    /// and have its fees withdrawn fully independently of the USDC accounting.
+    function test_multiToken_secondTokenLifecycle() public {
+        MockToken dai = new MockToken("Mock DAI", "DAI", 18);
+        uint256 daiPrice = 5 * 1e18;
+
+        vm.prank(owner);
+        market.setTokenAccepted(address(dai), true);
+        vm.prank(owner);
+        market.setFeeBps(1000); // 10%
+
+        _registerShop();
+        vm.prank(seller);
+        uint256 id = market.createListing(address(dai), daiPrice, ITEM_META);
+
+        dai.mint(buyer, daiPrice);
+        vm.startPrank(buyer);
+        dai.approve(address(market), daiPrice);
+        uint256 orderId = market.buy(id);
+        vm.stopPrank();
+
+        (,,, address oToken, uint256 amount,,) = market.orders(orderId);
+        assertEq(oToken, address(dai));
+        assertEq(amount, daiPrice);
+        assertEq(dai.balanceOf(address(market)), daiPrice);
+
+        vm.prank(buyer);
+        market.confirmReceipt(orderId);
+
+        uint256 expectedFee = (daiPrice * 1000) / 10_000;
+        assertEq(dai.balanceOf(seller), daiPrice - expectedFee);
+        assertEq(market.accruedFees(address(dai)), expectedFee);
+        assertEq(market.accruedFees(address(usdc)), 0); // USDC untouched
+
+        vm.prank(owner);
+        market.withdrawFees(address(dai), owner);
+        assertEq(dai.balanceOf(owner), expectedFee);
+        assertEq(market.accruedFees(address(dai)), 0);
+    }
+
+    /// Fees accrue and withdraw independently per token.
+    function test_multiToken_feesIndependentPerToken() public {
+        MockToken dai = new MockToken("Mock DAI", "DAI", 18);
+        vm.prank(owner);
+        market.setTokenAccepted(address(dai), true);
+        vm.prank(owner);
+        market.setFeeBps(1000); // 10%
+
+        _registerShop();
+
+        // USDC order
+        vm.prank(seller);
+        uint256 usdcListing = market.createListing(address(usdc), PRICE, ITEM_META);
+        uint256 usdcOrder = _fund(usdcListing);
+        vm.prank(buyer);
+        market.confirmReceipt(usdcOrder);
+
+        // DAI order
+        uint256 daiPrice = 3 * 1e18;
+        vm.prank(seller);
+        uint256 daiListing = market.createListing(address(dai), daiPrice, ITEM_META);
+        dai.mint(buyer, daiPrice);
+        vm.startPrank(buyer);
+        dai.approve(address(market), daiPrice);
+        uint256 daiOrder = market.buy(daiListing);
+        vm.stopPrank();
+        vm.prank(buyer);
+        market.confirmReceipt(daiOrder);
+
+        uint256 usdcFee = (PRICE * 1000) / 10_000;
+        uint256 daiFee = (daiPrice * 1000) / 10_000;
+        assertEq(market.accruedFees(address(usdc)), usdcFee);
+        assertEq(market.accruedFees(address(dai)), daiFee);
+
+        // Withdrawing one token does not affect the other.
+        vm.prank(owner);
+        market.withdrawFees(address(usdc), owner);
+        assertEq(market.accruedFees(address(usdc)), 0);
+        assertEq(market.accruedFees(address(dai)), daiFee);
+        assertEq(usdc.balanceOf(owner), usdcFee);
+
+        vm.prank(owner);
+        market.withdrawFees(address(dai), owner);
+        assertEq(market.accruedFees(address(dai)), 0);
+        assertEq(dai.balanceOf(owner), daiFee);
+    }
+
+    /// Removing a token from the allowlist after an order is funded must NOT
+    /// break settlement of that order — the token is snapshotted on the order.
+    function test_multiToken_removedTokenStillSettles() public {
+        MockToken dai = new MockToken("Mock DAI", "DAI", 18);
+        uint256 daiPrice = 2 * 1e18;
+
+        vm.prank(owner);
+        market.setTokenAccepted(address(dai), true);
+
+        _registerShop();
+        vm.prank(seller);
+        uint256 id = market.createListing(address(dai), daiPrice, ITEM_META);
+
+        dai.mint(buyer, daiPrice);
+        vm.startPrank(buyer);
+        dai.approve(address(market), daiPrice);
+        uint256 orderId = market.buy(id);
+        vm.stopPrank();
+
+        // Owner de-lists the token AFTER funding.
+        vm.prank(owner);
+        market.setTokenAccepted(address(dai), false);
+        assertFalse(market.acceptedTokens(address(dai)));
+
+        // Existing order still settles in DAI.
+        vm.prank(buyer);
+        market.confirmReceipt(orderId);
+        assertEq(dai.balanceOf(seller), daiPrice);
+
+        // But new listings in the de-listed token are blocked.
+        vm.prank(seller);
+        vm.expectRevert(bytes("token not accepted"));
+        market.createListing(address(dai), daiPrice, ITEM_META);
     }
 
     // --- reentrancy ---
 
+    function _reentrantMarket(ReentrantToken evil) internal returns (Marketplace m) {
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(evil);
+        m = new Marketplace(tokens, owner);
+    }
+
     function test_buy_blocksReentrancy() public {
         ReentrantToken evil = new ReentrantToken();
-        Marketplace m = new Marketplace(address(evil), owner);
+        Marketplace m = _reentrantMarket(evil);
 
         evil.mint(seller, PRICE);
         evil.mint(buyer, PRICE);
@@ -477,7 +665,7 @@ contract MarketplaceTest is Test {
         vm.prank(seller);
         m.registerShop(SHOP_META);
         vm.prank(seller);
-        uint256 id = m.createListing(PRICE, ITEM_META);
+        uint256 id = m.createListing(address(evil), PRICE, ITEM_META);
 
         // On the buyer's token pull, re-enter buy() again.
         evil.arm(address(m), abi.encodeWithSelector(m.buy.selector, id));
@@ -491,13 +679,13 @@ contract MarketplaceTest is Test {
 
     function test_confirmReceipt_blocksReentrancy() public {
         ReentrantToken evil = new ReentrantToken();
-        Marketplace m = new Marketplace(address(evil), owner);
+        Marketplace m = _reentrantMarket(evil);
 
         evil.mint(buyer, PRICE);
         vm.prank(seller);
         m.registerShop(SHOP_META);
         vm.prank(seller);
-        uint256 id = m.createListing(PRICE, ITEM_META);
+        uint256 id = m.createListing(address(evil), PRICE, ITEM_META);
 
         vm.startPrank(buyer);
         evil.approve(address(m), PRICE);

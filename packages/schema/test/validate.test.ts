@@ -107,3 +107,56 @@ test('assertShopProfile throws SchemaValidationError when invalid', () => {
 test('assertListingMetadata throws on invalid input', () => {
   assert.throws(() => assertListingMetadata({}), SchemaValidationError);
 });
+
+// --- payment hint (multi-token) ---
+
+test('isListingMetadata accepts a full payment hint', () => {
+  assert.equal(
+    isListingMetadata({
+      ...validListing,
+      payment: {
+        token: '0xddafbb505ad214d7b80b1f830fccc89b60fb7a83',
+        symbol: 'USDC',
+        decimals: 6,
+      },
+    }),
+    true,
+  );
+});
+
+test('isListingMetadata accepts a payment hint with only the token', () => {
+  assert.equal(
+    isListingMetadata({
+      ...validListing,
+      payment: { token: '0x0000000000000000000000000000000000000001' },
+    }),
+    true,
+  );
+});
+
+test('isListingMetadata rejects a payment hint missing the token', () => {
+  assert.equal(
+    isListingMetadata({ ...validListing, payment: { symbol: 'USDC' } }),
+    false,
+  );
+});
+
+test('isListingMetadata rejects non-numeric payment decimals', () => {
+  assert.equal(
+    isListingMetadata({
+      ...validListing,
+      payment: { token: '0xabc', decimals: 'six' },
+    }),
+    false,
+  );
+});
+
+test('isListingMetadata rejects unknown keys in the payment hint', () => {
+  assert.equal(
+    isListingMetadata({
+      ...validListing,
+      payment: { token: '0xabc', chainId: 100 },
+    }),
+    false,
+  );
+});
