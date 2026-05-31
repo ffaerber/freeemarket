@@ -44,7 +44,9 @@ export interface ListingMetadata {
   images: string[]; // Swarm refs
   category?: string;
   attributes?: Record<string, string>;
-  // price is ON-CHAIN (USDC 6-dp), not here
+  // price is ON-CHAIN (in the listing token's smallest unit), not here.
+  // stock/quantity is likewise ON-CHAIN (listings(id).stock — a unit COUNT,
+  // decremented by buy()), deliberately NOT duplicated here to avoid drift.
 }
 
 export const SCHEMA_VERSION = 1 as const;

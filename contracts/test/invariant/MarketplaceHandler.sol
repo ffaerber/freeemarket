@@ -27,10 +27,10 @@ contract MarketplaceHandler is Test {
         vm.prank(seller);
         market.registerShop(bytes32(uint256(1)));
 
-        // a handful of listings at varied prices
+        // a handful of listings at varied prices, each seeded with ample stock
         for (uint256 i = 1; i <= 3; i++) {
             vm.prank(seller);
-            listingIds.push(market.createListing(address(usdc), i * 1_000_000, bytes32(i)));
+            listingIds.push(market.createListing(address(usdc), i * 1_000_000, 1_000_000, bytes32(i)));
         }
     }
 
@@ -44,7 +44,15 @@ contract MarketplaceHandler is Test {
 
     function buy(uint256 listingSeed) external {
         uint256 listingId = _pick(listingIds, listingSeed);
-        (,, uint256 price,,) = market.listings(listingId);
+        (, , uint256 price, uint256 stock, bytes32 meta, ) = market.listings(listingId);
+
+        // Stock is finite now: if this listing is exhausted, restock it so the
+        // handler keeps driving buys (otherwise it could dead-end on "out of
+        // stock") without disturbing the escrow-solvency accounting.
+        if (stock == 0) {
+            vm.prank(seller);
+            market.updateListing(listingId, price, 1_000_000, meta, true);
+        }
 
         usdc.mint(buyer, price);
         vm.startPrank(buyer);

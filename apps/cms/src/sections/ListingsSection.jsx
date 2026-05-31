@@ -7,11 +7,12 @@
  *   2. Upload listing images to Swarm (write path) → collect refs.
  *   3. Assemble ListingMetadata (incl. the `payment` hint {token, symbol,
  *      decimals}) → validate with @freemarket/schema → upload JSON to Swarm.
- *   4. createListing(token, parseUnits(price, decimals), refToBytes32(metaRef)).
+ *   4. createListing(token, parseUnits(price, decimals), stockCount, refToBytes32(metaRef)).
+ *      `stock` is a unit COUNT (a plain integer) — NEVER parseUnits'd.
  *
- * Edit flow (per existing listing): change price/metadata/active and call
- * updateListing(id, price, metadata, active). Toggling active reuses the
- * existing metadata reference (no re-upload needed for an active flip).
+ * Edit flow (per existing listing): change price/stock/metadata/active and call
+ * updateListing(id, price, stock, metadata, active). Toggling active reuses the
+ * existing metadata reference + current stock (no re-upload needed for a flip).
  */
 import React, { useState } from 'react';
 import { PlusCircle, UploadCloud, X, Power, RefreshCw } from 'lucide-react';
@@ -45,6 +46,19 @@ import {
   ErrorNote,
   Pill,
 } from '../ui.jsx';
+
+/**
+ * Parse a stock field into a non-negative integer BigInt. Stock is a COUNT of
+ * units — NOT a token amount — so it must never go through parseUnits. Rejects
+ * empty/blank, non-integer, or negative input by throwing.
+ * @param {string} raw
+ * @returns {bigint}
+ */
+function parseStockCount(raw) {
+  const s = String(raw ?? '').trim();
+  if (!/^\d+$/.test(s)) throw new Error('Stock must be a whole number (a unit count).');
+  return BigInt(s);
+}
 
 export default function ListingsSection() {
   const { registered } = useShopProfile();
@@ -98,6 +112,7 @@ function CreateListing({ disabled, onCreated }) {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [price, setPrice] = useState('');
+  const [stock, setStock] = useState(''); // unit COUNT (not a token amount)
   const [images, setImages] = useState([]); // Swarm refs
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
@@ -120,7 +135,7 @@ function CreateListing({ disabled, onCreated }) {
 
   function reset() {
     setTitle(''); setVariant(''); setDescription(''); setCategory('');
-    setPrice(''); setImages([]); setTxHash(null);
+    setPrice(''); setStock(''); setImages([]); setTxHash(null);
     tokenCheck.setToken('');
   }
 
@@ -133,6 +148,11 @@ function CreateListing({ disabled, onCreated }) {
       // price → smallest unit using the token's on-chain decimals (never hardcoded).
       const priceSmallest = parseUnits(price.trim(), info.decimals);
       if (priceSmallest <= 0n) throw new Error('Price must be greater than 0.');
+
+      // stock is a COUNT of units — a plain non-negative integer, NEVER run
+      // through parseUnits (that is for token amounts). createListing requires > 0.
+      const stockCount = parseStockCount(stock);
+      if (stockCount <= 0n) throw new Error('Stock must be a whole number greater than 0.');
 
       // Assemble + validate ListingMetadata.
       const meta = { version: 1, title: title.trim(), images };
@@ -147,12 +167,12 @@ function CreateListing({ disabled, onCreated }) {
       const bee = makeBee(BEE_URL);
       const metaRef = await uploadJson(bee, POSTAGE_BATCH_ID, metaObj);
 
-      // createListing(token, price, metadata).
+      // createListing(token, price, stock, metadata).
       const hash = await writeContractAsync({
         abi: marketplaceAbi,
         address: MARKETPLACE_ADDRESS,
         functionName: 'createListing',
-        args: [info.address, priceSmallest, refToBytes32(metaRef)],
+        args: [info.address, priceSmallest, stockCount, refToBytes32(metaRef)],
         chainId: GNOSIS_CHAIN_ID,
       });
       setTxHash(hash);
@@ -191,13 +211,16 @@ function CreateListing({ disabled, onCreated }) {
         <Field label="Variant" hint="e.g. 100 g jar"><Input value={variant} onChange={(e) => setVariant(e.target.value)} placeholder="100 g jar" /></Field>
       </div>
       <Field label="Description"><Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
         <Field label="Category"><Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="fruit" /></Field>
         <Field
           label="Price"
           hint={tokenReady ? `In ${info.symbol || 'token'} (${info.decimals} decimals). Converted to smallest units on submit.` : 'Pick an accepted token to enable.'}
         >
           <Input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="14.00" inputMode="decimal" />
+        </Field>
+        <Field label="Stock" hint="Units available (a whole number, on-chain). Must be > 0.">
+          <Input value={stock} onChange={(e) => setStock(e.target.value)} placeholder="100" inputMode="numeric" />
         </Field>
       </div>
 
@@ -245,7 +268,7 @@ function CreateListing({ disabled, onCreated }) {
       </Field>
 
       <div style={{ marginTop: 8 }}>
-        <Button onClick={onCreate} disabled={busy || disabled || !title.trim() || !tokenReady || !price.trim()}>
+        <Button onClick={onCreate} disabled={busy || disabled || !title.trim() || !tokenReady || !price.trim() || !stock.trim()}>
           <PlusCircle size={16} /> {busy ? 'Creating…' : 'Create listing'}
         </Button>
       </div>
@@ -266,6 +289,7 @@ function ListingRow({ listing, onChanged }) {
 
   const [editing, setEditing] = useState(false);
   const [price, setPrice] = useState(listing.priceFormatted);
+  const [stock, setStock] = useState(String(listing.stockCount ?? 0)); // unit COUNT; 0 allowed on edit
   const [title, setTitle] = useState(listing.title);
   const [description, setDescription] = useState(listing.description || '');
   const [busy, setBusy] = useState(false);
@@ -280,7 +304,7 @@ function ListingRow({ listing, onChanged }) {
         abi: marketplaceAbi,
         address: MARKETPLACE_ADDRESS,
         functionName: 'updateListing',
-        args: [listing.id, listing.price, refToBytes32(listing.metadataRef), !listing.active],
+        args: [listing.id, listing.price, listing.stock, refToBytes32(listing.metadataRef), !listing.active],
         chainId: GNOSIS_CHAIN_ID,
       });
       await publicClient.waitForTransactionReceipt({ hash });
@@ -300,6 +324,10 @@ function ListingRow({ listing, onChanged }) {
       const priceSmallest = parseUnits(price.trim(), listing.decimals);
       if (priceSmallest <= 0n) throw new Error('Price must be greater than 0.');
 
+      // stock is a COUNT — a non-negative integer (0 = sold out / paused), never
+      // run through parseUnits. updateListing permits any value including 0.
+      const stockCount = parseStockCount(stock);
+
       // Rebuild metadata from the existing fields + edited title/description.
       const meta = { version: 1, title: title.trim(), images: listing.images };
       if (listing.variant) meta.variant = listing.variant;
@@ -316,7 +344,7 @@ function ListingRow({ listing, onChanged }) {
         abi: marketplaceAbi,
         address: MARKETPLACE_ADDRESS,
         functionName: 'updateListing',
-        args: [listing.id, priceSmallest, refToBytes32(metaRef), listing.active],
+        args: [listing.id, priceSmallest, stockCount, refToBytes32(metaRef), listing.active],
         chainId: GNOSIS_CHAIN_ID,
       });
       await publicClient.waitForTransactionReceipt({ hash });
@@ -346,6 +374,10 @@ function ListingRow({ listing, onChanged }) {
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>
             #{listing.id.toString()} · {listing.variant || 'no variant'} {' · '}
+            {listing.stockCount > 0
+              ? <Pill tone="accent2">{listing.stockCount} in stock</Pill>
+              : <Pill>sold out</Pill>}
+            {' '}
             {listing.active ? <Pill tone="accent2">active</Pill> : <Pill>inactive</Pill>}
             {!listing.hasMetadata && <span style={{ color: '#ff6b6b', marginLeft: 8 }}>metadata unreadable</span>}
           </div>
@@ -366,9 +398,14 @@ function ListingRow({ listing, onChanged }) {
           {UPLOADS_DISABLED && <Banner>Saving edits re-uploads metadata to Swarm — needs a postage batch.</Banner>}
           <Field label="Title"><Input value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
           <Field label="Description"><Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
-          <Field label={`Price (${listing.symbol}, ${listing.decimals} decimals)`}>
-            <Input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" />
-          </Field>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <Field label={`Price (${listing.symbol}, ${listing.decimals} decimals)`}>
+              <Input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" />
+            </Field>
+            <Field label="Stock (units)" hint="Whole number; 0 = sold out / paused.">
+              <Input value={stock} onChange={(e) => setStock(e.target.value)} inputMode="numeric" />
+            </Field>
+          </div>
           <Button onClick={saveEdit} disabled={busy || UPLOADS_DISABLED || !title.trim() || !price.trim()}>
             {busy ? 'Saving…' : 'Save changes'}
           </Button>

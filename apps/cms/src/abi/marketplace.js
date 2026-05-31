@@ -27,6 +27,7 @@ export const marketplaceAbi = [
       { name: 'seller', type: 'address', indexed: true },
       { name: 'token', type: 'address', indexed: true },
       { name: 'price', type: 'uint256', indexed: false },
+      { name: 'stock', type: 'uint256', indexed: false },
       { name: 'metadata', type: 'bytes32', indexed: false },
     ],
   },
@@ -36,8 +37,17 @@ export const marketplaceAbi = [
     inputs: [
       { name: 'id', type: 'uint256', indexed: true },
       { name: 'price', type: 'uint256', indexed: false },
+      { name: 'stock', type: 'uint256', indexed: false },
       { name: 'metadata', type: 'bytes32', indexed: false },
       { name: 'active', type: 'bool', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'StockChanged',
+    inputs: [
+      { name: 'id', type: 'uint256', indexed: true },
+      { name: 'newStock', type: 'uint256', indexed: false },
     ],
   },
   {
@@ -105,6 +115,7 @@ export const marketplaceAbi = [
     inputs: [
       { name: 'token', type: 'address' },
       { name: 'price', type: 'uint256' },
+      { name: 'stock', type: 'uint256' },
       { name: 'metadata', type: 'bytes32' },
     ],
     outputs: [{ name: 'id', type: 'uint256' }],
@@ -116,6 +127,7 @@ export const marketplaceAbi = [
     inputs: [
       { name: 'id', type: 'uint256' },
       { name: 'price', type: 'uint256' },
+      { name: 'stock', type: 'uint256' },
       { name: 'metadata', type: 'bytes32' },
       { name: 'active', type: 'bool' },
     ],
@@ -130,6 +142,7 @@ export const marketplaceAbi = [
       { name: 'seller', type: 'address' },
       { name: 'token', type: 'address' },
       { name: 'price', type: 'uint256' },
+      { name: 'stock', type: 'uint256' },
       { name: 'metadata', type: 'bytes32' },
       { name: 'active', type: 'bool' },
     ],

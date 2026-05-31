@@ -66,6 +66,10 @@ The layers interoperate through a **shared Swarm JSON schema** (see §6). That s
 
 Solidity ^0.8.20, OpenZeppelin v5 (`SafeERC20`, `ReentrancyGuard`, `Ownable`). Compiles clean. **Multi-token:** the owner curates an `acceptedTokens` allowlist; each listing picks one accepted ERC-20 and is priced in that token's smallest unit (decimals vary — USDC's 6 dp means 10 USDC = `10_000_000`; an 18-dp token uses `10 * 1e18`). The order snapshots its token at `buy` time, so settlement is unaffected if the allowlist later changes. Fees accrue per token.
 
+**On-chain inventory:** each `Listing` carries a `uint256 stock` — the remaining unit COUNT (not a token amount; never run through `parseUnits`). `buy()` requires `stock > 0` then decrements it by one, so the contract prevents overselling and buyers see true remaining quantity. Sellers set the initial stock at creation (must be > 0) and may adjust it on update (0 = sold out / paused). `active` stays an independent on/off switch.
+
+The `Listing` struct is `{ address seller; address token; uint256 price; uint256 stock; bytes32 metadata; bool active; }` — note the extra `stock` field changes the public `listings(uint256)` getter's returned tuple.
+
 **Order lifecycle:** `Funded → Completed | Refunded` (with `Disputed` as a branch).
 
 | Function | Access | Purpose |
@@ -73,16 +77,16 @@ Solidity ^0.8.20, OpenZeppelin v5 (`SafeERC20`, `ReentrancyGuard`, `Ownable`). C
 | `constructor(address[] initialTokens, owner)` | — | Seeds the accepted-token allowlist and sets the arbiter/owner. |
 | `setTokenAccepted(token, accepted)` | owner | Add/remove an ERC-20 from the accepted-token allowlist. |
 | `registerShop(bytes32 metadata)` | anyone | Create/update a shop. `metadata` = Swarm ref to shop profile. (Seller encryption key lives off-chain in SwarmChat — see §5.) |
-| `createListing(address token, uint256 price, bytes32 metadata)` | shop owner | New listing priced in an accepted `token`; `metadata` = Swarm ref to item details/photos. |
-| `updateListing(id, price, metadata, active)` | listing seller | Edit price/metadata/active. The settlement token is immutable after creation. |
-| `buy(uint256 listingId)` | buyer | Pulls the listing's token into escrow (snapshotting it on the order). Needs prior `approve`. Encrypted address is sent off-chain over PSS, keyed by `orderId` (see §5). |
+| `createListing(address token, uint256 price, uint256 stock, bytes32 metadata)` | shop owner | New listing priced in an accepted `token` with initial `stock` (unit count, must be > 0); `metadata` = Swarm ref to item details/photos. |
+| `updateListing(id, price, stock, metadata, active)` | listing seller | Edit price/stock/metadata/active (stock may be any value incl. 0 = sold out, or raised to restock). The settlement token is immutable after creation. |
+| `buy(uint256 listingId)` | buyer | Requires `active` and `stock > 0`; decrements `stock` by 1 (emits `StockChanged`) then pulls the listing's token into escrow (snapshotting it on the order). Needs prior `approve`. Encrypted address is sent off-chain over PSS, keyed by `orderId` (see §5). |
 | `confirmReceipt(orderId)` | buyer | Releases escrow to seller (in the order's token). |
 | `claimAfterTimeout(orderId)` | seller | Releases escrow after `autoReleasePeriod` (default 14d) if buyer is silent. |
 | `openDispute(orderId)` | buyer or seller | Moves order to `Disputed`. |
 | `resolveDispute(orderId, refundBuyer)` | owner (arbiter) | Refund buyer or pay seller. |
 | `setFeeBps`, `setAutoReleasePeriod`, `withdrawFees(token, to)` | owner | Admin. Fee capped at 10%; fees are withdrawn per token. |
 
-**Events:** `ShopRegistered`, `TokenAccepted(token, accepted)`, `ListingCreated(id, seller, token, price, metadata)`, `ListingUpdated`, `OrderFunded(orderId, listingId, buyer, seller, token, amount)`, `OrderCompleted`, `OrderRefunded`, `DisputeOpened`, `FeesWithdrawn(token, to, amount)`, plus admin events.
+**Events:** `ShopRegistered`, `TokenAccepted(token, accepted)`, `ListingCreated(id, seller, token, price, stock, metadata)`, `ListingUpdated(id, price, stock, metadata, active)`, `StockChanged(id, newStock)` (emitted from `buy` after decrement and from `updateListing`, so storefronts/indexers track remaining inventory cheaply), `OrderFunded(orderId, listingId, buyer, seller, token, amount)`, `OrderCompleted`, `OrderRefunded`, `DisputeOpened`, `FeesWithdrawn(token, to, amount)`, plus admin events.
 
 > **Decided (was open):** identity/keys are delegated to SwarmChat's `ContactRegistry` (§5). The `encryptionPubKey` field and the `shippingRef` argument have been removed, leaving the contract as **pure escrow + listings**. Encrypted addresses travel off-chain over PSS, stamped with a short-lived Swarm postage batch so the ciphertext self-expires after fulfillment.
 
@@ -147,7 +151,9 @@ interface ListingMetadata {
   images: string[];   // Swarm refs
   category?: string;
   attributes?: Record<string, string>;
-  // price is ON-CHAIN (USDC 6-dp), not here
+  // price is ON-CHAIN (USDC 6-dp), not here.
+  // stock/quantity is ALSO ON-CHAIN (listings(id).stock — a unit count
+  // decremented by buy()), NOT duplicated here (would drift), mirroring price.
 }
 ```
 

@@ -6,7 +6,7 @@ single source of truth for all shops on Gnosis Chain.
 - `src/Marketplace.sol` — built, compiles clean. Pure escrow + listings: seller
   keys and encrypted shipping addresses are off-chain (see Identity model below).
   **Unaudited.**
-- `test/` — Foundry suite: unit, fuzz, and invariant tests (51 tests, all passing).
+- `test/` — Foundry suite: unit, fuzz, and invariant tests (57 tests, all passing).
 - `script/Deploy.s.sol` — deploys `Marketplace` and seeds the accepted-token
   allowlist (multi-token; see Deploy below).
 

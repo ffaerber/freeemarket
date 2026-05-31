@@ -34,7 +34,7 @@ contract MarketplaceFuzzTest is Test {
         vm.prank(seller);
         market.registerShop(META);
         vm.prank(seller);
-        uint256 id = market.createListing(address(usdc), price, META);
+        uint256 id = market.createListing(address(usdc), price, 1, META);
 
         usdc.mint(buyer, price);
         vm.startPrank(buyer);
@@ -65,7 +65,7 @@ contract MarketplaceFuzzTest is Test {
         vm.prank(seller);
         market.registerShop(META);
         vm.prank(seller);
-        uint256 id = market.createListing(address(usdc), 1_000_000, META);
+        uint256 id = market.createListing(address(usdc), 1_000_000, 1, META);
 
         usdc.mint(buyer, 1_000_000);
         vm.startPrank(buyer);

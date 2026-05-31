@@ -66,8 +66,50 @@ function ProductMedia({ listing, aspect, fontSize }) {
   );
 }
 
+/**
+ * Inventory hint derived from the ON-CHAIN `stock` count (never a metadata
+ * field — that would drift; mirrors how price is on-chain). Shows "Sold out"
+ * when stock is 0, a low-stock nudge when scarce, else "N in stock".
+ */
+function StockBadge({ item }) {
+  // stock may be a bigint (real path) or absent; coerce to a count.
+  const count =
+    item.stockCount != null
+      ? item.stockCount
+      : item.stock != null
+        ? Number(item.stock)
+        : null;
+  if (count == null) return null;
+  const soldOut = count <= 0;
+  const low = !soldOut && count <= 5;
+  return (
+    <div
+      style={{
+        marginTop: 8,
+        fontSize: 12,
+        fontWeight: 700,
+        color: soldOut ? 'var(--muted)' : low ? 'var(--accent2)' : 'var(--muted)',
+      }}
+    >
+      {soldOut ? 'Sold out' : low ? `Only ${count} left` : `${count} in stock`}
+    </div>
+  );
+}
+
 function ProductBuy({ shop, item }) {
   const [checkout, setCheckout] = useState(false);
+  const count = item.stockCount != null ? item.stockCount : item.stock != null ? Number(item.stock) : null;
+  const soldOut = count != null && count <= 0;
+  if (soldOut) {
+    return (
+      <button
+        disabled
+        style={{ width: '100%', marginTop: 18, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', fontFamily: 'var(--body)', fontWeight: 700, fontSize: 15, padding: '15px', borderRadius: 14, cursor: 'not-allowed' }}
+      >
+        Sold out
+      </button>
+    );
+  }
   return (
     <>
       <button
@@ -151,6 +193,7 @@ function StorefrontView({ shop, listings, isLoading, error, hero, demo }) {
                   <span style={{ fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap' }}>{l.priceFormatted} {l.symbol}</span>
                 </div>
                 {l.variant && <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 6 }}>{l.variant}</div>}
+                <StockBadge item={l} />
               </div>
             </div>
           ))}
@@ -174,6 +217,7 @@ function StorefrontView({ shop, listings, isLoading, error, hero, demo }) {
                 <span style={{ fontFamily: 'var(--display)', fontSize: 30, color: 'var(--accent)' }}>{item.priceFormatted}</span>
                 <span style={{ color: 'var(--muted)', fontSize: 13 }}>{item.symbol}</span>
               </div>
+              <StockBadge item={item} />
               {demo ? (
                 <div style={{ marginTop: 18, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border)', color: 'var(--muted)', fontSize: 13 }}>
                   Checkout is disabled in DEMO MODE. Set VITE_MARKETPLACE_ADDRESS + VITE_SELLER to enable the real escrow flow.
