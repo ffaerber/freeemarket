@@ -10,10 +10,12 @@
  * VITE_MARKETPLACE_ADDRESS) or can't upload (no postage batch).
  *
  * The contract writes are REAL (registerShop / createListing / updateListing /
- * claim / dispute / resolve). The PSS decrypt of shipping addresses is STUBBED
- * at a clean boundary (src/messaging) pending @freemarket/messaging — CLAUDE.md
- * §5. Run this CMS LOCALLY so the decryption key + plaintext addresses stay on
- * the merchant's machine.
+ * claim / dispute / resolve). The PSS decrypt of shipping addresses and the
+ * seller→buyer tracking-code send are WIRED to @freemarket/messaging (src/
+ * messaging), going live once the merchant unlocks their ECIES key and a full
+ * Bee node + ContactRegistry are configured; otherwise they fall back to a
+ * graceful stub — CLAUDE.md §5. Run this CMS LOCALLY so the decryption key +
+ * plaintext addresses stay on the merchant's machine.
  */
 import React, { useState } from 'react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
@@ -146,7 +148,7 @@ export default function App() {
         <footer style={{ marginTop: 48, paddingTop: 18, borderTop: '1px solid var(--border)', color: 'var(--muted)', fontSize: 12, lineHeight: 1.6 }}>
           Marketplace: <code>{MARKETPLACE_ADDRESS || '— unset —'}</code> · Bee: <code>{BEE_URL}</code>
           <br />
-          Run this CMS LOCALLY: shipping-address decryption (PSS) uses your private key — it should never leave your machine. PSS decrypt is currently stubbed pending <code>@freemarket/messaging</code> (CLAUDE.md §5).
+          Run this CMS LOCALLY: shipping-address decryption (PSS) uses your private key — it should never leave your machine. PSS messaging is wired to <code>@freemarket/messaging</code> and goes live once you unlock your key and point at a full Bee node + ContactRegistry (CLAUDE.md §5).
         </footer>
       </main>
     </div>

@@ -9,7 +9,11 @@ viem + `@tanstack/react-query` + `@ethersphere/bee-js`. It reads listings
 on-chain (filtered by the shop's seller address), fetches each listing's
 metadata from Swarm, and runs a real escrow checkout
 (`approve` → `market.buy`). The encrypted-shipping-address-over-PSS step is
-wired to a clean boundary that is currently **stubbed** (see below).
+**wired live** to `@freemarket/messaging`, going live when a ContactRegistry +
+full Bee node + postage batch are configured and falling back to a graceful stub
+otherwise (see below). The buyer can also read the seller's encrypted tracking
+code from the order-success "Track order" panel (with their own ECIES key
+unlocked locally).
 
 ## Run
 
@@ -36,6 +40,8 @@ Only `VITE_`-prefixed vars are exposed to the client. Never commit secrets
 | `VITE_RPC_URL` | no | `https://rpc.gnosischain.com` | Gnosis Chain JSON-RPC endpoint. |
 | `VITE_BEE_URL` | no | `https://api.gateway.ethswarm.org` | Swarm Bee/gateway base for metadata + images. **PSS requires a full Bee node** (e.g. `http://localhost:1633`), not a gateway. |
 | `VITE_SHOP_METADATA` | no | — | Optional `bytes32`/ref override for the shop profile; short-circuits the on-chain `shops(seller)` read. |
+| `VITE_CONTACT_REGISTRY` | for live PSS | — | SwarmChat `ContactRegistry` address — resolves the **seller's** published ECIES public key on-chain so the buyer can encrypt their shipping address to it (CLAUDE.md §5). Unset / no entry ⇒ unconfigured ⇒ stub. Confirm the registry's exact ABI/selector in `src/lib/contactRegistry.js`. |
+| `VITE_POSTAGE_BATCH_ID` | for live PSS | — | Postage batch ("stamp") for the **buyer's** Bee node — required to send the encrypted address over PSS via `BeeTransport`. Not a secret, but per-node. Unset ⇒ address delivery stays stubbed. |
 
 ### DEMO MODE
 
@@ -54,7 +60,7 @@ configured shop, and checkout is disabled in demo mode.
 - `src/hooks/useShop.js` — `shops(seller).metadata` → Swarm `ShopProfile`.
 - `src/hooks/useListings.js` — `ListingCreated` logs → `listings(id)` → ERC-20 `decimals()`/`symbol()` → Swarm `ListingMetadata`. Prices format via `formatUnits` (decimals read per-token; never hardcoded — falls back to the metadata `payment` hint, then 18).
 - `src/checkout/Checkout.jsx` — real `approve` (if needed) → `buy(listingId)` → parse `OrderFunded` for `orderId` → encrypted-address boundary.
-- `src/messaging/index.js` — `sendEncryptedAddress(...)`: the single PSS integration point. **Stubbed** (returns `{ delivered: false, stub: true }`) pending `@freemarket/messaging`; see the file's JSDoc + CLAUDE.md §5 for the real ECIES → signed-envelope → Swarm PSS + recipient-feed flow.
+- `src/messaging/index.js` — `sendEncryptedAddress(...)` + `receiveTracking(...)`: the PSS integration points, **wired live** to `@freemarket/messaging`. They resolve the counterparty key via ContactRegistry (`src/lib/contactRegistry.js`), construct `BeeTransport` only behind the config gate, and sign envelopes with the connected wallet (`useWalletClient`). When ContactRegistry / a full Bee node / a postage batch / (for tracking) the buyer's unlocked private key is missing, they return a graceful stub (`{ stub: true }`). The plaintext address is never logged. See CLAUDE.md §5.
 - `src/Storefront.jsx` / `src/ui.jsx` — the ported white-label engine (theme tokens, hero, grid, product modal), now data-driven.
 
 ### `@freemarket/schema` resolution
@@ -75,5 +81,5 @@ to provide these so the browser build bundles cleanly. We only call bee-js's
 
 - [x] Port to the Vite + wagmi v2 + viem + bee-js stack.
 - [x] Replace mock `listings` with on-chain reads + Swarm metadata fetch.
-- [x] Wire checkout: `usdc.approve` → `market.buy`. Encrypt address + PSS send is **stubbed** at `src/messaging/index.js` pending `@freemarket/messaging` (CLAUDE.md §5).
+- [x] Wire checkout: `usdc.approve` → `market.buy`. Encrypt address + PSS send is **live** via `@freemarket/messaging` at `src/messaging/index.js` (graceful stub when ContactRegistry / Bee node / postage batch unconfigured); buyer can also read the seller's encrypted tracking code (CLAUDE.md §5).
 - [x] Replace glyph placeholders with Swarm-hosted images (with emoji fallback).
