@@ -90,6 +90,12 @@ async function loadMyListings(client, seller) {
         images: Array.isArray(meta?.images) ? meta.images : [],
         category: meta?.category || '',
         attributes: meta?.attributes || {},
+        // Product variant grouping (OFF-CHAIN metadata; CLAUDE.md §6). price +
+        // stock above stay ON-CHAIN per variant. Surfaced so listing rows can
+        // show which product group a listing belongs to + prefill the edit form.
+        productId: meta?.productId || '',
+        variantLabel: meta?.variantLabel || '',
+        variantOf: meta?.variantOf || '',
         hasMetadata: Boolean(meta),
       };
     }),

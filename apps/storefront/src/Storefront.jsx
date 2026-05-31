@@ -20,7 +20,7 @@ import { Store, ShoppingBag } from 'lucide-react';
 import { Styles, Pill } from './ui.jsx';
 import Checkout from './checkout/Checkout.jsx';
 import { useShop } from './hooks/useShop.js';
-import { useListings } from './hooks/useListings.js';
+import { useListings, groupListings } from './hooks/useListings.js';
 import { swarmImageUrl } from './lib/swarm.js';
 import { DEMO_MODE, DEMO_SHOP, BEE_URL } from './config.js';
 
@@ -96,9 +96,18 @@ function StockBadge({ item }) {
   );
 }
 
+/** Coerce a listing's ON-CHAIN stock to a count (bigint or number), or null. */
+function stockCount(item) {
+  return item?.stockCount != null
+    ? item.stockCount
+    : item?.stock != null
+      ? Number(item.stock)
+      : null;
+}
+
 function ProductBuy({ shop, item }) {
   const [checkout, setCheckout] = useState(false);
-  const count = item.stockCount != null ? item.stockCount : item.stock != null ? Number(item.stock) : null;
+  const count = stockCount(item);
   const soldOut = count != null && count <= 0;
   if (soldOut) {
     return (
@@ -125,12 +134,88 @@ function ProductBuy({ shop, item }) {
 }
 
 /**
- * The pure presentational engine. Receives a normalized `shop` (theme/copy +
- * `seller`) and a `listings` array; identical shape in demo and real paths.
+ * Format a group's price for the card: a single price when all variants share
+ * one, else a "lo–hi {symbol}" range (variants are price-sorted ascending).
  */
-function StorefrontView({ shop, listings, isLoading, error, hero, demo }) {
+function groupPriceLabel(group) {
+  const vs = group.variants;
+  const lo = vs[0];
+  const hi = vs[vs.length - 1];
+  if (lo.priceFormatted === hi.priceFormatted) {
+    return `${lo.priceFormatted} ${lo.symbol}`;
+  }
+  return `${lo.priceFormatted}–${hi.priceFormatted} ${lo.symbol}`;
+}
+
+/** A group is sold out only when EVERY variant's on-chain stock is 0. */
+function groupSoldOut(group) {
+  return group.variants.every((v) => {
+    const c = stockCount(v);
+    return c != null && c <= 0;
+  });
+}
+
+/**
+ * Variant selector — pill buttons of each variant's label. Hidden entirely for a
+ * group of one (renders nothing). Sold-out variants stay selectable (so the
+ * buyer can see the price/state) but are visually muted.
+ */
+function VariantSelector({ group, selectedId, onSelect }) {
+  if (group.variants.length <= 1) return null;
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8 }}>Variant</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {group.variants.map((v) => {
+          const c = stockCount(v);
+          const sold = c != null && c <= 0;
+          const active = v.id.toString() === selectedId?.toString();
+          return (
+            <button
+              key={v.id.toString()}
+              onClick={() => onSelect(v)}
+              style={{
+                fontFamily: 'var(--body)', fontSize: 13, fontWeight: 700,
+                padding: '8px 12px', borderRadius: 999, cursor: 'pointer',
+                border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                background: active ? 'color-mix(in srgb, var(--accent) 14%, var(--surface))' : 'var(--surface)',
+                color: active ? 'var(--accent)' : 'var(--text)',
+                opacity: sold ? 0.55 : 1,
+              }}
+            >
+              {v.variantLabel || v.variant || v.title}{sold ? ' · sold out' : ''}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The pure presentational engine. Receives a normalized `shop` (theme/copy +
+ * `seller`) and a `groups` array (each: { title, variants:[listing,…] });
+ * identical shape in demo and real paths. One card renders per GROUP; the modal
+ * carries a variant selector. A group of one behaves exactly like before.
+ */
+function StorefrontView({ shop, groups, isLoading, error, hero, demo }) {
   const t = shop.theme;
-  const [item, setItem] = useState(null);
+  // The open product modal holds a group; `selected` is the active variant.
+  const [group, setGroup] = useState(null);
+  const [selected, setSelected] = useState(null);
+  function openGroup(g) {
+    setGroup(g);
+    // Default to the first IN-STOCK variant, else the first (cheapest).
+    const firstAvailable = g.variants.find((v) => {
+      const c = stockCount(v);
+      return c == null || c > 0;
+    });
+    setSelected(firstAvailable || g.variants[0]);
+  }
+  function closeGroup() {
+    setGroup(null);
+    setSelected(null);
+  }
   const vars = {
     '--bg': t.bg, '--surface': t.surface, '--text': t.text, '--muted': t.muted,
     '--accent': t.accent, '--accent2': t.accent2, '--border': t.border,
@@ -172,58 +257,81 @@ function StorefrontView({ shop, listings, isLoading, error, hero, demo }) {
         {isLoading && (
           <div style={{ color: 'var(--muted)', fontSize: 14 }}>Loading listings from Gnosis + Swarm…</div>
         )}
-        {!isLoading && !error && listings.length === 0 && (
+        {!isLoading && !error && groups.length === 0 && (
           <div style={{ color: 'var(--muted)', fontSize: 14 }}>
             No active listings for this shop yet.
           </div>
         )}
 
+        {/* One card per GROUP. A group of one renders like a single product card
+            (no selector); a multi-variant group shows a price range + sold-out
+            state aggregated across variants. */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 18 }}>
-          {listings.map((l, i) => (
-            <div
-              key={l.id.toString()}
-              className="fm-card fm-rise"
-              onClick={() => setItem(l)}
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', animationDelay: `${0.05 * i}s` }}
-            >
-              <ProductMedia listing={l} aspect="1/1" fontSize={64} />
-              <div style={{ padding: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-                  <span style={{ fontFamily: 'var(--display)', fontSize: 21, lineHeight: 1 }}>{l.title}</span>
-                  <span style={{ fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap' }}>{l.priceFormatted} {l.symbol}</span>
+          {groups.map((g, i) => {
+            const lead = g.variants[0]; // cheapest (groupListings sorts ascending)
+            const soldOut = groupSoldOut(g);
+            return (
+              <div
+                key={g.key}
+                className="fm-card fm-rise"
+                onClick={() => openGroup(g)}
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', animationDelay: `${0.05 * i}s` }}
+              >
+                <ProductMedia listing={lead} aspect="1/1" fontSize={64} />
+                <div style={{ padding: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                    <span style={{ fontFamily: 'var(--display)', fontSize: 21, lineHeight: 1 }}>{g.title}</span>
+                    <span style={{ fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap' }}>{groupPriceLabel(g)}</span>
+                  </div>
+                  {g.variants.length > 1 ? (
+                    <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 6 }}>
+                      {g.variants.length} variants
+                    </div>
+                  ) : (
+                    lead.variant && <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 6 }}>{lead.variant}</div>
+                  )}
+                  {soldOut ? (
+                    <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>Sold out</div>
+                  ) : (
+                    g.variants.length === 1 && <StockBadge item={lead} />
+                  )}
                 </div>
-                {l.variant && <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 6 }}>{l.variant}</div>}
-                <StockBadge item={l} />
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </main>
 
-      {/* product modal */}
-      {item && (
-        <div className="fm-overlay" onClick={() => setItem(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 40, padding: 18, backdropFilter: 'blur(2px)' }}>
+      {/* product modal — carries a variant selector; `selected` is the active variant */}
+      {group && selected && (
+        <div className="fm-overlay" onClick={closeGroup} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 40, padding: 18, backdropFilter: 'blur(2px)' }}>
           <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', color: 'var(--text)', borderRadius: 20, maxWidth: 420, width: '100%', border: '1px solid var(--border)', overflow: 'hidden' }}>
             <div style={{ position: 'relative' }}>
-              <ProductMedia listing={item} aspect="16/10" fontSize={96} />
-              <span className="fm-x" onClick={() => setItem(null)} style={{ position: 'absolute', top: 14, right: 14, color: 'var(--text)', background: 'var(--surface)', borderRadius: 999, width: 28, height: 28, display: 'grid', placeItems: 'center' }}>✕</span>
+              <ProductMedia listing={selected} aspect="16/10" fontSize={96} />
+              <span className="fm-x" onClick={closeGroup} style={{ position: 'absolute', top: 14, right: 14, color: 'var(--text)', background: 'var(--surface)', borderRadius: 999, width: 28, height: 28, display: 'grid', placeItems: 'center' }}>✕</span>
             </div>
             <div style={{ padding: 22 }}>
-              <div style={{ fontFamily: 'var(--display)', fontSize: 30, lineHeight: 1 }}>{item.title}</div>
+              <div style={{ fontFamily: 'var(--display)', fontSize: 30, lineHeight: 1 }}>{group.title}</div>
               <div style={{ color: 'var(--muted)', marginTop: 6 }}>
-                {[item.variant, item.description].filter(Boolean).join(' · ')}
+                {[selected.variantLabel || selected.variant, selected.description].filter(Boolean).join(' · ')}
               </div>
+
+              {/* Variant selector (hidden for a group of one). Selecting updates
+                  price/stock/images and re-targets the Buy at that listingId. */}
+              <VariantSelector group={group} selectedId={selected.id} onSelect={setSelected} />
+
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 20 }}>
-                <span style={{ fontFamily: 'var(--display)', fontSize: 30, color: 'var(--accent)' }}>{item.priceFormatted}</span>
-                <span style={{ color: 'var(--muted)', fontSize: 13 }}>{item.symbol}</span>
+                <span style={{ fontFamily: 'var(--display)', fontSize: 30, color: 'var(--accent)' }}>{selected.priceFormatted}</span>
+                <span style={{ color: 'var(--muted)', fontSize: 13 }}>{selected.symbol}</span>
               </div>
-              <StockBadge item={item} />
+              <StockBadge item={selected} />
               {demo ? (
                 <div style={{ marginTop: 18, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border)', color: 'var(--muted)', fontSize: 13 }}>
                   Checkout is disabled in DEMO MODE. Set VITE_MARKETPLACE_ADDRESS + VITE_SELLER to enable the real escrow flow.
                 </div>
               ) : (
-                <ProductBuy shop={shop} item={item} />
+                // Keyed by variant id so the Buy/Checkout state resets per variant.
+                <ProductBuy key={selected.id.toString()} shop={shop} item={selected} />
               )}
             </div>
           </div>
@@ -235,11 +343,16 @@ function StorefrontView({ shop, listings, isLoading, error, hero, demo }) {
 
 /** DEMO MODE wrapper: render the ported sample shop config, no chain reads. */
 function DemoStorefront() {
-  // Normalize the demo listing prices to the {priceFormatted, symbol} shape.
+  // Normalize the demo listings to the shape loadListings() produces, then run
+  // them through the SAME pure grouping helper the real path uses — so the demo
+  // exercises the real grouped card/selector UI (shared productId ⇒ one card).
   const listings = DEMO_SHOP.listings.map((l) => ({
     ...l,
     id: BigInt(l.id),
     images: l.images || [],
+    productId: l.productId || '',
+    variantLabel: l.variantLabel || l.variant || l.title,
+    stockCount: l.stock != null ? Number(l.stock) : null,
   }));
   const shop = {
     seller: DEMO_SHOP.seller,
@@ -249,14 +362,14 @@ function DemoStorefront() {
     blurb: DEMO_SHOP.blurb,
     theme: DEMO_SHOP.theme,
   };
-  return <StorefrontView shop={shop} listings={listings} isLoading={false} error={null} hero={DEMO_SHOP.hero} demo />;
+  return <StorefrontView shop={shop} groups={groupListings(listings)} isLoading={false} error={null} hero={DEMO_SHOP.hero} demo />;
 }
 
-/** REAL path: read shop + listings from chain/Swarm. */
+/** REAL path: read shop + listings from chain/Swarm (grouped by productId). */
 function RealStorefront() {
   const { shop } = useShop();
-  const { listings, isLoading, error } = useListings();
-  return <StorefrontView shop={shop} listings={listings} isLoading={isLoading} error={error} />;
+  const { groups, isLoading, error } = useListings();
+  return <StorefrontView shop={shop} groups={groups} isLoading={isLoading} error={error} />;
 }
 
 export default function Storefront() {

@@ -75,13 +75,19 @@ export const DEMO_SHOP = {
   },
   hero: 'radial-gradient(120% 120% at 80% 0%, #FFE6CC 0%, #FFF7EE 55%)',
   // `stock` mirrors the on-chain unit count (a COUNT, never a token amount).
+  // `productId` + `variantLabel` are OFF-CHAIN grouping metadata: listings that
+  // share a productId render as ONE product card with a variant selector. Here
+  // the two Strawberries (one sold out) and the two Bananas each collapse into a
+  // single card; Mango / Mixed Berries have no productId ⇒ standalone cards.
+  // `price` (bigint smallest-unit) mirrors the real normalized shape so
+  // groupListings can sort variants by price; demo decimals are 6 (USDC-like).
   listings: [
-    { id: 1, title: 'Strawberries', variant: '10 g pouch', priceFormatted: '3.50', symbol: 'USDC', glyph: '🍓', description: 'One ingredient. Whole slices.', images: [], stock: 42 },
-    { id: 2, title: 'Strawberries', variant: '100 g jar', priceFormatted: '14.00', symbol: 'USDC', glyph: '🍓', description: 'Family jar, resealable.', images: [], stock: 8 },
-    { id: 3, title: 'Bananas', variant: '10 g pouch', priceFormatted: '3.00', symbol: 'USDC', glyph: '🍌', description: 'Coins, no sugar coating.', images: [], stock: 120 },
-    { id: 4, title: 'Bananas', variant: '100 g jar', priceFormatted: '12.00', symbol: 'USDC', glyph: '🍌', description: 'Snack-all-week size.', images: [], stock: 3 },
-    { id: 5, title: 'Mango', variant: '100 g jar', priceFormatted: '16.00', symbol: 'USDC', glyph: '🥭', description: 'Alphonso, intense.', images: [], stock: 0 },
-    { id: 6, title: 'Mixed Berries', variant: '100 g jar', priceFormatted: '18.00', symbol: 'USDC', glyph: '🫐', description: 'Strawberry · blueberry · rasp.', images: [], stock: 25 },
+    { id: 1, productId: 'strawberries', variantLabel: '10 g pouch', title: 'Strawberries', variant: '10 g pouch', price: 3500000n, priceFormatted: '3.50', symbol: 'USDC', glyph: '🍓', description: 'One ingredient. Whole slices.', images: [], stock: 0 },
+    { id: 2, productId: 'strawberries', variantLabel: '100 g jar', title: 'Strawberries', variant: '100 g jar', price: 14000000n, priceFormatted: '14.00', symbol: 'USDC', glyph: '🍓', description: 'Family jar, resealable.', images: [], stock: 8 },
+    { id: 3, productId: 'bananas', variantLabel: '10 g pouch', title: 'Bananas', variant: '10 g pouch', price: 3000000n, priceFormatted: '3.00', symbol: 'USDC', glyph: '🍌', description: 'Coins, no sugar coating.', images: [], stock: 120 },
+    { id: 4, productId: 'bananas', variantLabel: '100 g jar', title: 'Bananas', variant: '100 g jar', price: 12000000n, priceFormatted: '12.00', symbol: 'USDC', glyph: '🍌', description: 'Snack-all-week size.', images: [], stock: 3 },
+    { id: 5, title: 'Mango', variant: '100 g jar', variantLabel: '100 g jar', price: 16000000n, priceFormatted: '16.00', symbol: 'USDC', glyph: '🥭', description: 'Alphonso, intense.', images: [], stock: 0 },
+    { id: 6, title: 'Mixed Berries', variant: '100 g jar', variantLabel: '100 g jar', price: 18000000n, priceFormatted: '18.00', symbol: 'USDC', glyph: '🫐', description: 'Strawberry · blueberry · rasp.', images: [], stock: 25 },
   ],
 };
 

@@ -160,3 +160,33 @@ test('isListingMetadata rejects unknown keys in the payment hint', () => {
     false,
   );
 });
+
+// --- product variant grouping (off-chain) ---
+
+test('isListingMetadata accepts productId + variantLabel + variantOf', () => {
+  assert.equal(
+    isListingMetadata({
+      ...validListing,
+      productId: 'sunny-strawberries',
+      variantLabel: '100 g jar',
+      variantOf: 'Strawberries',
+    }),
+    true,
+  );
+});
+
+test('isListingMetadata: grouping fields are optional (omitting still validates)', () => {
+  const { productId, variantLabel, variantOf, ...rest } = {
+    ...validListing,
+    productId: 'p',
+    variantLabel: 'v',
+    variantOf: 'o',
+  } as ListingMetadata & { productId?: string; variantLabel?: string; variantOf?: string };
+  assert.equal(isListingMetadata(rest), true);
+  // and a minimal listing without any grouping fields is still valid
+  assert.equal(isListingMetadata({ version: 1, title: 'X', images: [] }), true);
+});
+
+test('isListingMetadata rejects a non-string productId', () => {
+  assert.equal(isListingMetadata({ ...validListing, productId: 42 }), false);
+});

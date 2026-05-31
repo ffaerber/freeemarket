@@ -47,6 +47,34 @@ export interface ListingMetadata {
   // price is ON-CHAIN (in the listing token's smallest unit), not here.
   // stock/quantity is likewise ON-CHAIN (listings(id).stock — a unit COUNT,
   // decremented by buy()), deliberately NOT duplicated here to avoid drift.
+
+  // --- Product variant grouping (OFF-CHAIN, optional, additive in v1) ---
+  // Each variant remains its own on-chain Listing (own price + own on-chain
+  // stock); grouping is expressed purely here so the storefront/CMS can render
+  // multiple pack sizes / variants of one product under a single product card
+  // with a variant selector. None of these affect escrow or settlement.
+
+  /**
+   * Stable key shared by all variants of the SAME product within one shop/seller
+   * (e.g. a slug "sunny-strawberries" or a uuid). Listings sharing a `productId`
+   * are grouped as variants of one product. Absent ⇒ the listing is its own
+   * standalone product (a group of one).
+   */
+  productId?: string;
+  /**
+   * Short label for THIS variant shown in the selector (e.g. "Single roll",
+   * "6-pack", "100 g jar"). This is the selector-specific label and is PREFERRED
+   * over `variant` for the selector; the two can coexist (`variant` may carry a
+   * longer descriptive phrase). Fallback order for the selector label is
+   * `variantLabel` → `variant` → `title`.
+   */
+  variantLabel?: string;
+  /**
+   * Optional human product name for the group header (e.g. "Strawberries") when
+   * the card title should differ from the per-variant `title`. If absent, the
+   * group title is derived from the first variant's `title`.
+   */
+  variantOf?: string;
 }
 
 export const SCHEMA_VERSION = 1 as const;
