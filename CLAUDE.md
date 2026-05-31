@@ -23,7 +23,7 @@ Three layers around one shared spine:
 |---|---|---|---|
 | **Smart contract** (`Marketplace`) | Listings, escrow, orders, disputes. Single source of truth on Gnosis. | No — shared by all shops | Built, compiles clean. Untested/unaudited. |
 | **Storefront** | Customer-facing, themeable SPA. Reads the contract, filtered by shop's seller address. | Yes — one deploy per shop, own ENS + Swarm | Demo template built |
-| **CMS / admin** | Merchant back-office: create listings, upload images to Swarm, fulfill orders, decrypt shipping addresses. Talks only to contract + Swarm + PSS, so it's generic. | No — one shared app (ideally run locally for address privacy) | Not built |
+| **CMS / admin** | Merchant back-office: create listings, upload images to Swarm, fulfill orders, decrypt shipping addresses. Talks only to contract + Swarm + PSS, so it's generic. | No — one shared app (ideally run locally for address privacy) | Built (`apps/cms`) — shop registration, listing CRUD + Swarm image upload, order dashboard (claim/dispute/resolve). PSS decrypt stubbed pending `@freemarket/messaging`. |
 
 The layers interoperate through a **shared Swarm JSON schema** (see §6). That schema is the real platform contract: the CMS writes it, any storefront reads it.
 
@@ -173,7 +173,7 @@ Reuse SwarmChat's `make deploy-frontend` per shop:
 3. ~~**Decide identity model** — delegate keys/comms to `ContactRegistry` + PSS, then strip `encryptionPubKey`/`shippingRef` from `Marketplace`.~~ ✅ Done — delegated to SwarmChat; contract is now pure escrow + listings.
 4. ~~**Confirm token** — Gnosis USDC address or commit to xDAI; set in deploy script.~~ ✅ Done — replaced the single hardcoded token with an owner-curated `acceptedTokens` allowlist + per-listing token choice (multi-token escrow). The deploy script (`contracts/script/Deploy.s.sol`) seeds the allowlist — defaulting to Gnosis WXDAI + bridged USDC, overridable via the `TOKENS` env — and the owner can add/remove tokens later via `setTokenAccepted`. No single token is hardcoded.
 5. **Storefront (real)** — port template, wire contract + Swarm + PSS.
-6. **CMS / admin** — shop registration, listing CRUD + Swarm image upload, order dashboard (watch `OrderFunded`, pull + decrypt PSS address), mark shipped, disputes.
+6. ~~**CMS / admin** — shop registration, listing CRUD + Swarm image upload, order dashboard (watch `OrderFunded`, pull + decrypt PSS address), mark shipped, disputes.~~ ✅ Done (`apps/cms`) — built on the storefront's stack (Vite + wagmi v2 + viem + bee-js + `@freemarket/schema`). Shop registration (`registerShop`, schema-validated profile → Swarm), listing CRUD + Swarm image/metadata upload (per-listing accepted-token pick, decimals read on-chain via `parseUnits`), order dashboard (`OrderFunded` filtered by seller + live `orders()` state, `claimAfterTimeout`/`openDispute`/owner-only `resolveDispute`). Mark-shipped is an off-chain localStorage memo (no on-chain shipped state). **PSS decrypt is stubbed** at a clean boundary (`receiveDecryptedAddress`) — one-file swap pending `@freemarket/messaging`.
 7. **Deploy** — per-shop Swarm + ENS pipeline.
 8. **Audit** — before any real funds on mainnet.
 
