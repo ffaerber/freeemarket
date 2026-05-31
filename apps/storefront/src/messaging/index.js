@@ -6,23 +6,26 @@
  * after `market.buy(...)` funds the escrow and emits `OrderFunded(orderId,…)`.
  *
  * ──────────────────────────────────────────────────────────────────────────
- * REAL FLOW (to implement when @freemarket/messaging — the ported SwarmChat
- * lib/ — lands; see packages/messaging in CLAUDE.md §10):
+ * REAL FLOW — now backed by `@freemarket/messaging` (packages/messaging).
+ * This stub delegates to that library's `sendShippingAddress(...)` once the
+ * three runtime prerequisites below are wired; until then it returns the stub
+ * result so the checkout UX still works with no Bee node configured.
  *
- *   1. Resolve the seller's PSS public key. Sellers publish it via SwarmChat's
+ *   1. Resolve the seller's ECIES public key. Sellers publish it via SwarmChat's
  *      `ContactRegistry.register()`; look it up by `seller` address rather than
- *      duplicating a key on-chain in Marketplace.
- *   2. Build the payload `{ orderId, name, address }` and ECIES-encrypt it to
- *      the seller's key with `eciesjs` (MetaMask's native eth_decrypt /
- *      eth_getEncryptionPublicKey are DEPRECATED — do not use them).
- *   3. Wrap the ciphertext in a signed envelope (SwarmChat `lib/envelope.ts`)
- *      so the seller can verify the sender == on-chain `order.buyer`.
- *   4. Send over Swarm PSS via SwarmChat `lib/transport.ts`, stamped with a
- *      short-lived postage batch so the ciphertext self-expires post-fulfilment.
- *   5. Also write the envelope to the seller's per-recipient Swarm feed
- *      (store-and-forward) so an offline shop still receives it.
- *   6. Return `{ delivered: true, stub: false }` (optionally with the PSS topic
- *      / feed reference for the buyer's records).
+ *      duplicating a key on-chain in Marketplace. (Pass it as `sellerPublicKey`.)
+ *   2. `@freemarket/messaging` builds `{ orderId, name, address }` and
+ *      ECIES-encrypts it to the seller's key (eciesjs — MetaMask's native
+ *      eth_decrypt / eth_getEncryptionPublicKey are DEPRECATED).
+ *   3. It seals a signed envelope (the buyer's wallet `signMessage`) so the
+ *      seller can verify the sender == on-chain `order.buyer`.
+ *   4. It delivers over Swarm PSS + the seller's feed via `BeeTransport`,
+ *      stamped with a short-lived postage batch so the ciphertext self-expires.
+ *
+ * STILL TO WIRE to flip this from stub → live (all three required):
+ *   - seller ECIES public key resolution via ContactRegistry,
+ *   - a configured full Bee node + postage batch (`BeeTransport`),
+ *   - the buyer wallet's `signMessage` (already available via wagmi/viem).
  *
  * Caveat (CLAUDE.md §5): PSS requires BOTH parties to run a full Bee node, not
  * a gateway — this is the main UX friction. The `beeUrl` passed in must point
@@ -67,10 +70,11 @@ export async function sendEncryptedAddress({
     throw new Error('sendEncryptedAddress: beeUrl is required');
   }
 
-  // TODO(messaging): replace this stub with the real ECIES-encrypt → signed
-  // envelope → Swarm PSS send + recipient-feed write described above. This is
-  // a one-file swap once @freemarket/messaging (packages/messaging, ported from
-  // SwarmChat lib/) is available. See CLAUDE.md §5 and §10.
+  // TODO(messaging): delegate to `@freemarket/messaging`'s sendShippingAddress
+  // once a Bee node + postage batch (BeeTransport), the seller's ECIES public
+  // key (ContactRegistry), and the buyer wallet `signMessage` are wired here.
+  // The library is built and tested; this is the remaining app-side glue. The
+  // call shape is a superset of this function's args. See CLAUDE.md §5 and §10.
   console.info(
     '[messaging:STUB] would ECIES-encrypt shipping address and send over Swarm PSS',
     {
