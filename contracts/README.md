@@ -6,7 +6,8 @@ single source of truth for all shops on Gnosis Chain.
 - `src/Marketplace.sol` — built, compiles clean. Pure escrow + listings: seller
   keys and encrypted shipping addresses are off-chain (see Identity model below).
   **Unaudited.**
-- `test/` — Foundry suite: unit, fuzz, and invariant tests (57 tests, all passing).
+- `test/` — Foundry suite: unit, security, fuzz, and invariant tests (69 tests,
+  all passing). See **Security hardening** below.
 - `script/Deploy.s.sol` — deploys `Marketplace` and seeds the accepted-token
   allowlist (multi-token; see Deploy below).
 
@@ -32,11 +33,35 @@ forge test
 
 - `test/Marketplace.t.sol` — unit + revert coverage: shops, listings, buy/escrow,
   confirm, timeout, disputes, fee math, admin, reentrancy guard.
+- `test/MarketplaceSecurity.t.sol` — pre-audit hardening regressions (no-renounce
+  + Ownable2Step, fee-on-transfer-safe escrow, allowlist re-check on buy, pausable
+  intake). See **Security hardening** below.
 - `test/MarketplaceFuzz.t.sol` — fuzz: fee conservation (`payout + fee == amount`)
   and the timeout boundary.
 - `test/invariant/` — handler-driven escrow-solvency invariant: the contract's
   USDC balance always equals open escrow + accrued fees.
-- `test/mocks/` — `MockUSDC` (6-dp) and `ReentrantToken` (reentrancy probe).
+- `test/mocks/` — `MockUSDC` (6-dp), `MockToken` (configurable decimals),
+  `ReentrantToken` (reentrancy probe), and `FeeOnTransferToken` (1%-skimming token).
+
+## Security hardening
+
+A pre-audit hardening pass (`test/MarketplaceSecurity.t.sol`) covers four
+mitigations baked into `Marketplace.sol`. The contract is **still unaudited** —
+do not handle real funds until externally reviewed.
+
+1. **Permanent arbiter.** `Ownable2Step` (2-step ownership transfer) +
+   `renounceOwnership()` overridden to revert, so the sole dispute arbiter can
+   never be removed and Disputed escrow can never lock.
+2. **Fee-on-transfer-safe escrow.** `buy` records the actually-received amount
+   (a `balanceOf` delta around the transfer), not the listed price, so a
+   skimming token can't over-draw other orders' escrow. Proven against the
+   `FeeOnTransferToken` mock.
+3. **Allowlist re-check on `buy`.** De-listing a compromised token blocks new
+   funding immediately; already-funded orders still settle on their snapshotted
+   token.
+4. **Pausable circuit breaker on intake only.** `pause()`/`unpause()` gate
+   `buy`/`createListing` only — all settlement and exit paths stay callable
+   while paused, so pausing can never trap funds.
 
 ## Deploy
 

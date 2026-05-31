@@ -5,6 +5,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title Marketplace
@@ -33,8 +35,35 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  *      price in the listing's token before calling `buy`. The owner curates the
  *      accepted-token allowlist via `setTokenAccepted` (initial set is seeded at
  *      deployment — see CLAUDE.md §3/§4).
+ *
+ * @dev SECURITY HARDENING (CLAUDE.md step #8, pre-audit). Four mitigations are
+ *      baked in; the contract remains unaudited:
+ *
+ *      1. PERMANENT ARBITER. The owner is the sole dispute arbiter, so losing
+ *         ownership would lock every Disputed order's funds forever. This
+ *         contract therefore uses `Ownable2Step` (a transfer must be accepted
+ *         by the new owner — no fat-fingering the arbiter role to a wrong/zero
+ *         address) and `renounceOwnership` is overridden to REVERT (the arbiter
+ *         can never be removed).
+ *
+ *      2. FEE-ON-TRANSFER SAFE ESCROW. `buy` records the ACTUALLY-received
+ *         amount (balance delta around the transfer), not the listed price, so
+ *         a deflationary/skimming token can never make one order over-draw
+ *         another's escrow. The escrow-solvency invariant holds even if such a
+ *         token slips the allowlist.
+ *
+ *      3. ALLOWLIST RE-CHECK ON BUY. `buy` re-checks `acceptedTokens[token]`,
+ *         so de-listing a compromised token stops NEW funding immediately.
+ *         Already-funded orders settle on their snapshotted token and are
+ *         unaffected (their settlement path does not re-check the allowlist).
+ *
+ *      4. CIRCUIT BREAKER (Pausable). The owner can `pause()` to halt INTAKE
+ *         only — `buy` and `createListing`. Settlement and exit paths
+ *         (confirmReceipt, claimAfterTimeout, openDispute, resolveDispute,
+ *         withdrawFees, updateListing) are NEVER pausable, so pausing can stop
+ *         new money/listings but can NEVER trap escrowed funds.
  */
-contract Marketplace is ReentrancyGuard, Ownable {
+contract Marketplace is ReentrancyGuard, Ownable2Step, Pausable {
     using SafeERC20 for IERC20;
 
     /// @notice Owner-curated allowlist of ERC-20s a listing may be priced in.
@@ -109,7 +138,8 @@ contract Marketplace is ReentrancyGuard, Ownable {
     event FeesWithdrawn(address indexed token, address indexed to, uint256 amount);
 
     /// @param initialTokens ERC-20s to seed the accepted-token allowlist with.
-    /// @param _owner        arbiter/owner.
+    /// @param _owner        arbiter/owner. (Ownable2Step extends Ownable, so the
+    ///                      initial owner is still set via `Ownable(_owner)`.)
     constructor(address[] memory initialTokens, address _owner) Ownable(_owner) {
         for (uint256 i = 0; i < initialTokens.length; i++) {
             address token = initialTokens[i];
@@ -117,6 +147,16 @@ contract Marketplace is ReentrancyGuard, Ownable {
             acceptedTokens[token] = true;
             emit TokenAccepted(token, true);
         }
+    }
+
+    // --- Ownership / arbiter (HARDENING 1: permanent arbiter) ---
+
+    /// @notice Renouncing ownership is DISABLED: the owner is the sole dispute
+    ///         arbiter, so removing it would permanently lock every Disputed
+    ///         order's escrow. Ownership can still be TRANSFERRED (2-step, via
+    ///         Ownable2Step), but never abandoned.
+    function renounceOwnership() public override onlyOwner {
+        revert("renounce disabled: arbiter required");
     }
 
     // --- Admin: token allowlist ---
@@ -150,6 +190,7 @@ contract Marketplace is ReentrancyGuard, Ownable {
     ///         must be > 0; each `buy` decrements it by one.
     function createListing(address token, uint256 price, uint256 stock, bytes32 metadata)
         external
+        whenNotPaused
         returns (uint256 id)
     {
         require(shops[msg.sender].registered, "no shop");
@@ -194,14 +235,26 @@ contract Marketplace is ReentrancyGuard, Ownable {
     function buy(uint256 listingId)
         external
         nonReentrant
+        whenNotPaused
         returns (uint256 orderId)
     {
         Listing memory l = listings[listingId];
         require(l.active, "inactive");
         require(l.stock > 0, "out of stock");
         require(l.seller != msg.sender, "self-buy");
+        // HARDENING 3: re-check the allowlist at funding time. If the owner has
+        // de-listed this token (e.g. it was compromised), block NEW funding even
+        // for listings created while it was accepted. Already-funded orders are
+        // UNAFFECTED — settlement (_release / resolveDispute) uses the order's
+        // snapshotted token and never re-checks this allowlist, so existing
+        // escrow always settles in the token it was funded in.
+        require(acceptedTokens[l.token], "token not accepted");
 
         orderId = nextOrderId++;
+        // Create the order with everything known BEFORE the transfer. `amount`
+        // is provisionally the price; it is overwritten post-transfer with the
+        // actually-received amount (see HARDENING 2 below). State and stock
+        // effects stay PRE-transfer to preserve checks-effects-interactions.
         orders[orderId] = Order({
             listingId: listingId,
             buyer: msg.sender,
@@ -218,8 +271,20 @@ contract Marketplace is ReentrancyGuard, Ownable {
         listings[listingId].stock = newStock;
         emit StockChanged(listingId, newStock);
 
+        // HARDENING 2: fee-on-transfer / deflationary token safety. A skimming
+        // token may deliver LESS than `price`; recording `price` would let this
+        // order over-draw other orders' escrow on payout/refund. Measure the
+        // balance delta and escrow exactly what was received. `amount` is the
+        // ONLY field written AFTER the external call — that is safe because the
+        // function is `nonReentrant` (no re-entry can observe the interim state)
+        // and CEI is otherwise preserved (state/stock are set pre-transfer).
+        uint256 balanceBefore = IERC20(l.token).balanceOf(address(this));
         IERC20(l.token).safeTransferFrom(msg.sender, address(this), l.price);
-        emit OrderFunded(orderId, listingId, msg.sender, l.seller, l.token, l.price);
+        uint256 received = IERC20(l.token).balanceOf(address(this)) - balanceBefore;
+        require(received > 0, "no funds received");
+
+        orders[orderId].amount = received;
+        emit OrderFunded(orderId, listingId, msg.sender, l.seller, l.token, received);
     }
 
     /// @notice Buyer releases escrow to the seller after receiving the item.
@@ -272,6 +337,23 @@ contract Marketplace is ReentrancyGuard, Ownable {
     }
 
     // --- Admin ---
+
+    // --- Admin: circuit breaker (HARDENING 4: Pausable on INTAKE only) ---
+
+    /// @notice Pause INTAKE: `buy` and `createListing` revert while paused.
+    /// @dev INVARIANT: pausing halts new money + new listings ONLY. Settlement
+    ///      and exit paths (confirmReceipt, claimAfterTimeout, openDispute,
+    ///      resolveDispute, withdrawFees) and updateListing are NEVER pausable —
+    ///      so the owner can never trap escrowed funds by pausing. Pause stops
+    ///      intake, never withdrawals.
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Resume intake (re-enable `buy` / `createListing`).
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 
     function setFeeBps(uint16 _feeBps) external onlyOwner {
         require(_feeBps <= MAX_FEE_BPS, "fee too high");
