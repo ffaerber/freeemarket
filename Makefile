@@ -1,7 +1,7 @@
 # FreeMarket — monorepo build / test / deploy
 # Adapt per-shop deploy from SwarmChat's `make deploy-frontend` (see CLAUDE.md §8).
 
-.PHONY: help build test contracts-build contracts-test storefront cms deploy-frontend
+.PHONY: help build test contracts-build contracts-test deploy-contract storefront cms deploy-frontend
 
 help:
 	@echo "FreeMarket targets:"
@@ -9,6 +9,7 @@ help:
 	@echo "  make test             - run all tests"
 	@echo "  make contracts-build  - forge build (contracts/)"
 	@echo "  make contracts-test   - forge test (contracts/)"
+	@echo "  make deploy-contract  - deploy Marketplace (set RPC_URL; dry-run if unset)"
 	@echo "  make storefront       - dev server for apps/storefront"
 	@echo "  make cms              - dev server for apps/cms"
 	@echo "  make deploy-frontend  - build + upload to Swarm + set ENS contenthash (TODO)"
@@ -24,6 +25,14 @@ contracts-build:
 
 contracts-test:
 	cd contracts && forge test
+
+# Deploy the Marketplace escrow contract + seed its accepted-token allowlist.
+# Config via env (all optional): TOKENS (comma-separated ERC-20s; default Gnosis
+# WXDAI + USDC), OWNER (arbiter; default broadcaster). Set RPC_URL + PRIVATE_KEY
+# to broadcast; with neither it's a local dry-run. See contracts/README.md.
+deploy-contract:
+	cd contracts && forge script script/Deploy.s.sol:Deploy \
+	  $(if $(RPC_URL),--rpc-url $(RPC_URL) --broadcast,)
 
 storefront:
 	@echo "TODO: cd apps/storefront && npm run dev"

@@ -169,9 +169,9 @@ Reuse SwarmChat's `make deploy-frontend` per shop:
 ## 9. Build Order / TODO
 
 1. ~~**Schema** (`packages/schema`) — TS types + JSON Schema.~~ ✅ Done.
-2. ~~**Contract tests** — Foundry suite (happy paths, escrow release, timeout, dispute, fees, fuzz, invariants).~~ ✅ Done (45 tests, incl. multi-token).
+2. ~~**Contract tests** — Foundry suite (happy paths, escrow release, timeout, dispute, fees, fuzz, invariants).~~ ✅ Done (51 tests, incl. multi-token + deploy script).
 3. ~~**Decide identity model** — delegate keys/comms to `ContactRegistry` + PSS, then strip `encryptionPubKey`/`shippingRef` from `Marketplace`.~~ ✅ Done — delegated to SwarmChat; contract is now pure escrow + listings.
-4. ~~**Confirm token** — Gnosis USDC address or commit to xDAI; set in deploy script.~~ ✅ Done — replaced the single hardcoded token with an owner-curated `acceptedTokens` allowlist + per-listing token choice (multi-token escrow). The deploy script seeds the allowlist (e.g. Gnosis USDC and/or wrapped-xDAI); the owner can add/remove tokens later via `setTokenAccepted`. No single token is hardcoded.
+4. ~~**Confirm token** — Gnosis USDC address or commit to xDAI; set in deploy script.~~ ✅ Done — replaced the single hardcoded token with an owner-curated `acceptedTokens` allowlist + per-listing token choice (multi-token escrow). The deploy script (`contracts/script/Deploy.s.sol`) seeds the allowlist — defaulting to Gnosis WXDAI + bridged USDC, overridable via the `TOKENS` env — and the owner can add/remove tokens later via `setTokenAccepted`. No single token is hardcoded.
 5. **Storefront (real)** — port template, wire contract + Swarm + PSS.
 6. **CMS / admin** — shop registration, listing CRUD + Swarm image upload, order dashboard (watch `OrderFunded`, pull + decrypt PSS address), mark shipped, disputes.
 7. **Deploy** — per-shop Swarm + ENS pipeline.
