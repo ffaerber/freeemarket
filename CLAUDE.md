@@ -90,6 +90,12 @@ The `Listing` struct is `{ address seller; address token; uint256 price; uint256
 
 > **Decided (was open):** identity/keys are delegated to SwarmChat's `ContactRegistry` (§5). The `encryptionPubKey` field and the `shippingRef` argument have been removed, leaving the contract as **pure escrow + listings**. Encrypted addresses travel off-chain over PSS, stamped with a short-lived Swarm postage batch so the ciphertext self-expires after fulfillment.
 
+**Security hardening (pre-audit, build step #8).** Four mitigations are baked into `Marketplace.sol` (contract still **unaudited**):
+1. **Permanent arbiter.** Switched `Ownable` → **`Ownable2Step`** (ownership transfer is a 2-step accept, so the arbiter role can't be fat-fingered to a wrong/zero address) and `renounceOwnership()` is **overridden to revert** (`"renounce disabled: arbiter required"`) — the sole dispute arbiter can never be removed, so Disputed escrow can never lock forever.
+2. **Fee-on-transfer-safe escrow.** `buy` records `order.amount` as the **actually-received amount** (a `balanceOf` delta around the `safeTransferFrom`), not the listed price, and requires `received > 0`. A skimming/deflationary token can therefore never over-draw other orders' escrow. `amount` is the only field written *after* the transfer (safe under `nonReentrant`); state + stock effects stay pre-transfer (CEI).
+3. **Allowlist re-check on `buy`.** `buy` re-checks `acceptedTokens[token]`, so de-listing a compromised token blocks **new** funding immediately. Already-funded orders settle on their snapshotted token and don't re-check, so existing escrow always settles.
+4. **Pausable circuit breaker on intake only.** Owner-gated `pause()`/`unpause()` apply `whenNotPaused` to **`buy` and `createListing` only**. Settlement/exit paths (`confirmReceipt`, `claimAfterTimeout`, `openDispute`, `resolveDispute`, `withdrawFees`) and `updateListing` are **never** pausable — pausing halts new money/listings but can never trap escrowed funds.
+
 ---
 
 ## 5. Encrypted Shipping Addresses (via SwarmChat / PSS)
@@ -204,7 +210,7 @@ security notes) in [`docs/DEPLOY.md`](docs/DEPLOY.md).
 ## 9. Build Order / TODO
 
 1. ~~**Schema** (`packages/schema`) — TS types + JSON Schema.~~ ✅ Done.
-2. ~~**Contract tests** — Foundry suite (happy paths, escrow release, timeout, dispute, fees, fuzz, invariants).~~ ✅ Done (51 tests, incl. multi-token + deploy script).
+2. ~~**Contract tests** — Foundry suite (happy paths, escrow release, timeout, dispute, fees, fuzz, invariants).~~ ✅ Done (69 tests, incl. multi-token + deploy script + pre-audit security hardening — see §4).
 3. ~~**Decide identity model** — delegate keys/comms to `ContactRegistry` + PSS, then strip `encryptionPubKey`/`shippingRef` from `Marketplace`.~~ ✅ Done — delegated to SwarmChat; contract is now pure escrow + listings.
 4. ~~**Confirm token** — Gnosis USDC address or commit to xDAI; set in deploy script.~~ ✅ Done — replaced the single hardcoded token with an owner-curated `acceptedTokens` allowlist + per-listing token choice (multi-token escrow). The deploy script (`contracts/script/Deploy.s.sol`) seeds the allowlist — defaulting to Gnosis WXDAI + bridged USDC, overridable via the `TOKENS` env — and the owner can add/remove tokens later via `setTokenAccepted`. No single token is hardcoded.
 5. **Storefront (real)** — port template, wire contract + Swarm + PSS.
@@ -237,8 +243,9 @@ freemarket/
 
 ## 11. Known Constraints
 
-- Contract is **unaudited** — do not handle real funds until tested + reviewed.
-- Dispute arbiter is currently the contract owner (centralized). Upgrade path: Kleros-style decentralized arbitration plugged into `resolveDispute`.
+- Contract is **unaudited** — do not handle real funds until tested + reviewed. (A pre-audit hardening pass is done — see §4 "Security hardening": permanent/no-renounce 2-step arbiter, fee-on-transfer-safe escrow amounts, allowlist re-check on buy, pausable intake — but a full external audit is still required.)
+- Dispute arbiter is currently the contract owner (centralized). Upgrade path: Kleros-style decentralized arbitration plugged into `resolveDispute`. **The arbiter cannot be renounced** (`renounceOwnership` reverts) and ownership transfer is 2-step, so the role can't be lost or mis-handed — but it remains a single trusted party until decentralized.
+- **Pausing cannot trap funds.** The owner's circuit breaker (`pause`) halts intake (`buy`/`createListing`) only; every settlement and exit path stays callable while paused, so escrow can always be released/refunded/withdrawn.
 - USDC is an admin-controlled token (can freeze addresses) — a frozen party can cause a transfer to revert. Not fixable at the contract level.
 - Cross-shop search/browse needs an indexer (The Graph). Per-shop listing reads can use contract events directly.
 - Existing artifacts to carry over: `Marketplace.sol`, `Storefront.jsx`.
