@@ -292,6 +292,27 @@ export default function Checkout({ shop, item, onClose }) {
 
         {phase === 'buy' && (
           <StepShell icon={ShoppingBag} title="Pay into escrow" body="Funds are held by the contract — not the seller — until you confirm delivery (or the timeout elapses).">
+            {/* Itemized total. The ON-CHAIN price is the single amount escrowed
+                by buy() and already INCLUDES shipping (CLAUDE.md §4/§6) — this
+                just shows how it splits. Shipping is FLAT (not per-region): the
+                contract never sees the destination country (§5). */}
+            <div style={{ marginBottom: 16, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg)', fontSize: 13.5, lineHeight: 1.7 }}>
+              {item.hasShipping && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--muted)' }}>
+                    <span>Item</span><span>{item.itemFormatted} {item.symbol}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--muted)' }}>
+                    <span>Shipping</span><span>{item.shippingFormatted} {item.symbol}</span>
+                  </div>
+                  <div style={{ height: 1, background: 'var(--border)', margin: '8px 0' }} />
+                </>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+                <span>Total into escrow</span>
+                <span style={{ color: 'var(--accent)' }}>{item.priceFormatted} {item.symbol}</span>
+              </div>
+            </div>
             <PrimaryButton onClick={doBuy} disabled={busy}>
               {busy ? 'Confirming…' : `Pay ${item.priceFormatted} ${item.symbol}`} <ArrowRight size={17} />
             </PrimaryButton>

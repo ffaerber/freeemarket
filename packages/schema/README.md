@@ -10,10 +10,10 @@ read them. Prices are **not** here — they live on-chain in `Marketplace` as US
 ## What's in here
 
 - **TypeScript types** (`src/index.ts`) — `ShopProfile`, `ListingMetadata`,
-  `ShopTheme`, `ShippingPolicy`, `SCHEMA_VERSION`.
+  `ShopTheme`, `ShippingPolicy`, `PricingBreakdown`, `SCHEMA_VERSION`.
 - **JSON Schema** (`src/schemas.ts`) — draft-07 definitions mirroring the types,
   for validation in any environment (`shopProfileSchema`, `listingMetadataSchema`,
-  `shopThemeSchema`, `shippingPolicySchema`, `allSchemas`).
+  `shopThemeSchema`, `shippingPolicySchema`, `pricingBreakdownSchema`, `allSchemas`).
 - **Runtime validators** (`src/validate.ts`) — ajv-backed helpers for validating
   untrusted objects fetched from Swarm.
 - **Shipping-region logic** (`src/regions.ts`) — `REGION_PRESETS`/`REGION_LABELS`,
@@ -23,6 +23,15 @@ read them. Prices are **not** here — they live on-chain in `Marketplace` as US
   UI only and is **not on-chain-enforced** (the buyer's country travels off-chain
   inside the encrypted address; CLAUDE.md §5). Both apps import this single
   resolver so the country/region lists never diverge.
+- **Pricing-breakdown logic** (`src/pricing.ts`) — `shippingFromPricing`. A
+  listing's optional `ListingMetadata.pricing` (`{ item?, shipping? }`, decimal
+  strings in the token's units) is a **DISPLAY-ONLY** split of the **on-chain
+  price**, which already INCLUDES shipping and is the single amount escrowed/paid
+  via `buy()`. `shippingFromPricing(pricing, priceFormatted)` reconciles the split
+  against the authoritative on-chain price (item anchors; shipping is re-derived as
+  `price − item` so a stale/mismatched breakdown never shows a non-reconciling
+  total). Shipping is **flat per variant, not per-region** — the contract never
+  sees the destination country (CLAUDE.md §5). Both apps import this one helper.
 
 ## Usage
 

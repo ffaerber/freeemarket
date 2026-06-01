@@ -87,9 +87,12 @@ export const DEMO_SHOP = {
   // groupListings can sort variants by price; demo decimals are 6 (USDC-like).
   listings: [
     { id: 1, productId: 'strawberries', variantLabel: '10 g pouch', title: 'Strawberries', variant: '10 g pouch', price: 3500000n, priceFormatted: '3.50', symbol: 'USDC', glyph: '🍓', description: 'One ingredient. Whole slices.', images: [], stock: 0 },
-    { id: 2, productId: 'strawberries', variantLabel: '100 g jar', title: 'Strawberries', variant: '100 g jar', price: 14000000n, priceFormatted: '14.00', symbol: 'USDC', glyph: '🍓', description: 'Family jar, resealable.', images: [], stock: 8 },
+    // `pricing` is a DISPLAY-ONLY split of the on-chain price (which already
+    // includes shipping); item + shipping reconcile to priceFormatted. FLAT per
+    // variant — not per-region (the contract can't see the destination, §5).
+    { id: 2, productId: 'strawberries', variantLabel: '100 g jar', title: 'Strawberries', variant: '100 g jar', price: 14000000n, priceFormatted: '14.00', pricing: { item: '12.00', shipping: '2.00' }, symbol: 'USDC', glyph: '🍓', description: 'Family jar, resealable.', images: [], stock: 8 },
     { id: 3, productId: 'bananas', variantLabel: '10 g pouch', title: 'Bananas', variant: '10 g pouch', price: 3000000n, priceFormatted: '3.00', symbol: 'USDC', glyph: '🍌', description: 'Coins, no sugar coating.', images: [], stock: 120 },
-    { id: 4, productId: 'bananas', variantLabel: '100 g jar', title: 'Bananas', variant: '100 g jar', price: 12000000n, priceFormatted: '12.00', symbol: 'USDC', glyph: '🍌', description: 'Snack-all-week size.', images: [], stock: 3 },
+    { id: 4, productId: 'bananas', variantLabel: '100 g jar', title: 'Bananas', variant: '100 g jar', price: 12000000n, priceFormatted: '12.00', pricing: { item: '10.00', shipping: '2.00' }, symbol: 'USDC', glyph: '🍌', description: 'Snack-all-week size.', images: [], stock: 3 },
     { id: 5, title: 'Mango', variant: '100 g jar', variantLabel: '100 g jar', price: 16000000n, priceFormatted: '16.00', symbol: 'USDC', glyph: '🥭', description: 'Alphonso, intense.', images: [], stock: 0 },
     { id: 6, title: 'Mixed Berries', variant: '100 g jar', variantLabel: '100 g jar', price: 18000000n, priceFormatted: '18.00', symbol: 'USDC', glyph: '🫐', description: 'Strawberry · blueberry · rasp.', images: [], stock: 25 },
   ],

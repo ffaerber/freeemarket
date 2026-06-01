@@ -83,6 +83,11 @@ async function loadMyListings(client, seller) {
         symbol,
         priceFormatted: formatUnits(price, decimals),
         active,
+        // DISPLAY-ONLY price breakdown ({ item, shipping }) from metadata
+        // (CLAUDE.md §6). The on-chain `price` above stays authoritative and
+        // already INCLUDES shipping; this is surfaced so the rows/edit form can
+        // show + prefill the split. Absent on legacy listings ⇒ null.
+        pricing: meta?.pricing || null,
         metadataRef,
         title: meta?.title || `Listing #${id}`,
         variant: meta?.variant || '',
