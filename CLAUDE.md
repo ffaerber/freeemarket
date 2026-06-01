@@ -146,6 +146,23 @@ interface ShopProfile {
     accent: string; accent2: string; border: string; radius: string;
     display: string; body: string;
   };
+
+  // --- Shipping-region policy (OFF-CHAIN, optional, additive in v1) ---
+  // ADVISORY only: the storefront SHOWS this ("Ships to: …") and DISABLES checkout
+  // for excluded countries; it is NOT on-chain-enforced (the buyer's country
+  // travels off-chain inside the ECIES-encrypted address — §5 — so the contract
+  // can't see it and a buyer could lie; the dispute/refund path is the backstop).
+  // Absent ⇒ ships worldwide (backward compatible). Resolve with canShipTo /
+  // describeShippingPolicy from @freemarket/schema (shared by CMS + storefront).
+  shipping?: {
+    mode: 'worldwide' | 'allowlist' | 'blocklist';
+    //   worldwide → ships everywhere (countries/regions ignored)
+    //   allowlist → ships ONLY to the listed countries/regions
+    //   blocklist → ships everywhere EXCEPT the listed countries/regions
+    countries?: string[]; // ISO 3166-1 alpha-2 (UPPERCASE, e.g. "DE","US")
+    regions?: string[];   // named presets expanded via REGION_PRESETS (EU/EEA/US/NA)
+    note?: string;        // free text shown to buyers, e.g. "Ships within 3 days"
+  };
 }
 
 // Pointed to by Listing.metadata (bytes32 Swarm ref)
@@ -187,6 +204,8 @@ To productionize:
 - Replace glyph placeholders with Swarm-hosted images.
 
 **Variant grouping (built).** Listings sharing an OFF-CHAIN `productId` (see §6) render as ONE product card with a variant selector instead of separate cards; price + stock stay ON-CHAIN per variant. `useListings`/`useMyListings` surface `productId`/`variantLabel` and a pure `groupListings()` helper collapses the flat list into groups (`{ productId, title, variants }`, price-sorted). The card shows a price range; the modal's selector switches price/stock/images and re-targets the Buy at that variant's `listingId`; a fully-sold-out group shows "Sold out"; a group of one renders exactly as before (no selector). The CMS create/edit forms let the seller set `productId` + `variantLabel`. No contract change.
+
+**Shipping-region gate (built).** A shop-level `ShopProfile.shipping` policy (§6 — `worldwide`/`allowlist`/`blocklist` + region presets + ISO countries) drives an ADVISORY checkout gate. The CMS Shop section lets the seller set the mode, region-preset checkboxes (EU/EEA/US/NA), individual ISO country codes, and an optional note; the storefront shows a "Ships to: …" badge (`describeShippingPolicy`) and, in checkout, asks the buyer's destination country and **disables the pay/send button when `canShipTo(policy, country)` is false** (with a clear "{shop} doesn't ship to {country}" note that final eligibility is the seller's policy and an un-shippable order is refunded via dispute). This is enforced OFF-CHAIN only — the country can't be checked on-chain because the address is ECIES-encrypted and sent over PSS (§5); the country rides inside that already-encrypted payload. The ship/no-ship logic (`canShipTo`, `REGION_PRESETS`, `describeShippingPolicy`) lives in `@freemarket/schema` and is shared by both apps (no duplication). No contract change.
 
 ---
 

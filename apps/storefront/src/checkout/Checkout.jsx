@@ -24,8 +24,10 @@ import {
 } from 'wagmi';
 import { parseEventLogs } from 'viem';
 import { ShoppingBag, X, Check, Lock, Wallet, Truck, ArrowRight, AlertTriangle } from 'lucide-react';
+import { canShipTo, describeShippingPolicy } from '@freemarket/schema';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { erc20Abi } from '../abi/erc20.js';
+import { COUNTRIES, countryName } from './countries.js';
 import { sendEncryptedAddress, receiveTracking, makeSignDigest } from '../messaging/index.js';
 import {
   MARKETPLACE_ADDRESS,
@@ -101,7 +103,15 @@ export default function Checkout({ shop, item, onClose }) {
   const [actionError, setActionError] = useState(null);
   const [name, setName] = useState('');
   const [shipTo, setShipTo] = useState('');
+  const [country, setCountry] = useState('');
   const [deliveryResult, setDeliveryResult] = useState(null);
+
+  // ADVISORY shipping gate (CLAUDE.md §5): can this shop ship to the buyer's
+  // selected country? Enforced here in the UI only — the country can't be checked
+  // on-chain (it's inside the encrypted, off-chain address). A buyer who funds
+  // escrow anyway is refunded via the dispute path. Absent policy ⇒ worldwide.
+  const shippingPolicy = shop.shipping;
+  const shippable = country ? canShipTo(shippingPolicy, country) : true;
 
   // Buyer-side tracking read (seller→buyer). The buyer's ECIES private key is
   // unlocked LOCALLY here — held only in React state, never persisted or sent.
@@ -210,7 +220,7 @@ export default function Checkout({ shop, item, onClose }) {
         orderId,
         buyer: address,
         seller: shop.seller,
-        address: { name, address: shipTo },
+        address: { name, address: shipTo, country },
         publicClient,
         signMessage,
         beeUrl: BEE_URL,
@@ -303,9 +313,35 @@ export default function Checkout({ shop, item, onClose }) {
               value={shipTo}
               onChange={(e) => setShipTo(e.target.value)}
               rows={3}
-              style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--body)', fontSize: 14, marginBottom: 12, resize: 'vertical' }}
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--body)', fontSize: 14, marginBottom: 10, resize: 'vertical' }}
             />
-            <PrimaryButton onClick={doSendAddress} disabled={busy || !name || !shipTo}>
+            <select
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1px solid ${country && !shippable ? '#ff6b6b' : 'var(--border)'}`, background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--body)', fontSize: 14, marginBottom: 12 }}
+            >
+              <option value="">Select destination country…</option>
+              {COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>{c.name}</option>
+              ))}
+            </select>
+
+            {/* ADVISORY shipping gate — DISABLE pay when excluded (CLAUDE.md §5). */}
+            {country && !shippable && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 12, padding: '11px 13px', borderRadius: 12, border: '1px solid #ff6b6b', background: 'color-mix(in srgb, #ff6b6b 8%, transparent)', color: 'var(--text)', fontSize: 13, lineHeight: 1.5 }}>
+                <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1, color: '#ff6b6b' }} />
+                <span>
+                  <strong>{shop.name} doesn't ship to {countryName(country)}.</strong> This shop ships to{' '}
+                  {describeShippingPolicy(shippingPolicy)}. Final eligibility is the seller's policy — an
+                  un-shippable order would be refunded via dispute.
+                </span>
+              </div>
+            )}
+            {shippingPolicy && shippingPolicy.note && (
+              <div style={{ color: 'var(--muted)', fontSize: 12.5, marginBottom: 12 }}>{shippingPolicy.note}</div>
+            )}
+
+            <PrimaryButton onClick={doSendAddress} disabled={busy || !name || !shipTo || !country || !shippable}>
               {busy ? 'Encrypting & sending…' : 'Send encrypted address'} <ArrowRight size={17} />
             </PrimaryButton>
             {orderId != null && (

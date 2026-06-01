@@ -23,6 +23,42 @@ export interface ShopTheme {
   body: string;
 }
 
+/**
+ * Shop-level shipping-region policy (OPTIONAL, additive in v1).
+ *
+ * Mode semantics:
+ *   - `worldwide` — ships everywhere; `countries`/`regions` are IGNORED.
+ *   - `allowlist` — ships ONLY to the listed countries/regions.
+ *   - `blocklist` — ships everywhere EXCEPT the listed countries/regions.
+ *
+ * IMPORTANT — this is an ADVISORY STOREFRONT policy, NOT on-chain-enforced. The
+ * buyer's address (and country) is ECIES-encrypted and travels OFF-CHAIN over
+ * Swarm PSS (CLAUDE.md §5), so the Marketplace contract never sees a country
+ * and a buyer could lie. The storefront uses this to show the policy and DISABLE
+ * checkout for excluded countries; the dispute/refund path is the backstop if
+ * someone funds escrow anyway. Resolve it with `canShipTo` / `describeShipping-
+ * Policy` from `./regions.ts` (shared by the CMS and storefront).
+ *
+ * Backward compatible: a shop with no `shipping` policy is treated as worldwide.
+ */
+export interface ShippingPolicy {
+  /** How `countries`/`regions` are interpreted (see interface JSDoc). */
+  mode: 'worldwide' | 'allowlist' | 'blocklist';
+  /**
+   * Individual ISO 3166-1 alpha-2 country codes (UPPERCASE, e.g. "DE", "US").
+   * Used by `allowlist`/`blocklist`; ignored for `worldwide`.
+   */
+  countries?: string[];
+  /**
+   * Named region presets (e.g. "EU", "EEA", "US", "NA") that EXPAND into country
+   * codes via `REGION_PRESETS` in `./regions.ts`. Combined (unioned) with
+   * `countries`. Ignored for `worldwide`.
+   */
+  regions?: string[];
+  /** Optional free-text shown to buyers, e.g. "Ships within 3 days". */
+  note?: string;
+}
+
 /** Pointed to by `Shop.metadata` (bytes32 Swarm ref). */
 export interface ShopProfile {
   version: 1;
@@ -33,6 +69,11 @@ export interface ShopProfile {
   logo?: string; // Swarm ref
   banner?: string; // Swarm ref
   theme: ShopTheme;
+  /**
+   * Optional ADVISORY shipping-region policy (see `ShippingPolicy`). Absent ⇒
+   * the shop ships worldwide. NOT on-chain-enforced (CLAUDE.md §5).
+   */
+  shipping?: ShippingPolicy;
 }
 
 /** Pointed to by `Listing.metadata` (bytes32 Swarm ref). */
@@ -82,6 +123,7 @@ export const SCHEMA_VERSION = 1 as const;
 // JSON Schema (draft-07) definitions and runtime validators.
 export {
   shopThemeSchema,
+  shippingPolicySchema,
   shopProfileSchema,
   listingMetadataSchema,
   allSchemas,
@@ -93,3 +135,12 @@ export {
   assertShopProfile,
   assertListingMetadata,
 } from './validate.js';
+
+// Shipping-region policy logic (shared by CMS + storefront).
+export {
+  REGION_PRESETS,
+  REGION_LABELS,
+  resolveShippingCountries,
+  canShipTo,
+  describeShippingPolicy,
+} from './regions.js';

@@ -74,6 +74,10 @@ export const DEMO_SHOP = {
     display: "'Fraunces', Georgia, serif", body: "'DM Sans', sans-serif",
   },
   hero: 'radial-gradient(120% 120% at 80% 0%, #FFE6CC 0%, #FFF7EE 55%)',
+  // Sample ADVISORY shipping-region policy (off-chain; CLAUDE.md §5): ships to
+  // the EU + the US only. The storefront renders a "Ships to: EU & US" badge and
+  // gates checkout by the buyer's selected country. NOT on-chain-enforced.
+  shipping: { mode: 'allowlist', regions: ['EU'], countries: ['US'], note: 'Ships within 3 days' },
   // `stock` mirrors the on-chain unit count (a COUNT, never a token amount).
   // `productId` + `variantLabel` are OFF-CHAIN grouping metadata: listings that
   // share a productId render as ONE product card with a variant selector. Here

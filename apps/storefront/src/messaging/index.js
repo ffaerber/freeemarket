@@ -57,7 +57,7 @@ export function makeSignDigest(walletClient, account) {
  * @param {string|number|bigint} args.orderId  On-chain order id from OrderFunded.
  * @param {string} args.buyer    On-chain buyer (signs the envelope).
  * @param {string} args.seller   On-chain seller (recipient / ContactRegistry key lookup).
- * @param {{ name: string, address: string }} args.address  Plaintext (client-side only, never logged).
+ * @param {{ name: string, address: string, country?: string }} args.address  Plaintext (client-side only, never logged). The optional ISO `country` is folded into the encrypted address line so the seller sees the destination (still OFF-CHAIN; CLAUDE.md §5).
  * @param {import('viem').PublicClient} [args.publicClient]  for ContactRegistry key resolution.
  * @param {(digestHex: string) => Promise<string>} [args.signMessage]  buyer's EIP-191 signer.
  * @param {string} args.beeUrl   Bee node base URL (must be a full node for real PSS).
@@ -118,7 +118,15 @@ export async function sendEncryptedAddress({
     buyer,
     seller,
     sellerPublicKey: pubKey,
-    address: { name: address.name, address: address.address },
+    // Fold the destination country into the address text so the seller sees it
+    // (the messaging lib's ShippingAddress is { name, address }). Still entirely
+    // OFF-CHAIN inside the ECIES-encrypted payload (CLAUDE.md §5).
+    address: {
+      name: address.name,
+      address: address.country
+        ? `${address.address}\n${address.country}`
+        : address.address,
+    },
     signMessage,
     transport,
   });

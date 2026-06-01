@@ -38,6 +38,31 @@ export const shopThemeSchema: SchemaObject = {
   },
 };
 
+/**
+ * Shop-level ADVISORY shipping-region policy (see `ShippingPolicy` in
+ * ./index.ts). NOT on-chain-enforced — the country travels off-chain inside the
+ * encrypted address (CLAUDE.md §5). `mode` is required; `countries` are ISO
+ * 3166-1 alpha-2 (2 uppercase letters), `regions` are named presets (EU/EEA/…).
+ */
+export const shippingPolicySchema: SchemaObject = {
+  $id: 'https://freemarket.eth/schema/shipping-policy.json',
+  type: 'object',
+  additionalProperties: false,
+  required: ['mode'],
+  properties: {
+    mode: { type: 'string', enum: ['worldwide', 'allowlist', 'blocklist'] },
+    countries: {
+      type: 'array',
+      items: { type: 'string', pattern: '^[A-Z]{2}$' },
+    },
+    regions: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    note: { type: 'string' },
+  },
+};
+
 /** Pointed to by `Shop.metadata` (bytes32 Swarm ref). */
 export const shopProfileSchema: SchemaObject = {
   $id: 'https://freemarket.eth/schema/shop-profile.json',
@@ -53,6 +78,8 @@ export const shopProfileSchema: SchemaObject = {
     logo: { type: 'string' },
     banner: { type: 'string' },
     theme: { $ref: 'https://freemarket.eth/schema/shop-theme.json' },
+    // Optional advisory shipping-region policy (off-chain; CLAUDE.md §5).
+    shipping: { $ref: 'https://freemarket.eth/schema/shipping-policy.json' },
   },
 };
 
@@ -103,6 +130,7 @@ export const listingMetadataSchema: SchemaObject = {
 /** All schemas, keyed by their `$id`. Useful for bulk registration. */
 export const allSchemas: SchemaObject[] = [
   shopThemeSchema,
+  shippingPolicySchema,
   paymentHintSchema,
   shopProfileSchema,
   listingMetadataSchema,

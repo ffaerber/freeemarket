@@ -61,6 +61,9 @@ export function useShop() {
     theme: profile?.theme || FALLBACK_THEME,
     logo: profile?.logo || '',
     banner: profile?.banner || '',
+    // ADVISORY shipping-region policy (off-chain; CLAUDE.md §5). Absent ⇒
+    // undefined ⇒ treated as worldwide by canShipTo/describeShippingPolicy.
+    shipping: profile?.shipping,
   };
 
   return {

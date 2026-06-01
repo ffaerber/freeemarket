@@ -13,9 +13,15 @@
  * uploads here (we upload it and store the resulting ref).
  */
 import React, { useEffect, useState } from 'react';
-import { Store, UploadCloud, Check } from 'lucide-react';
+import { Store, UploadCloud, Check, Truck } from 'lucide-react';
 import { useWriteContract, usePublicClient } from 'wagmi';
-import { assertShopProfile, SchemaValidationError } from '@freemarket/schema';
+import {
+  assertShopProfile,
+  SchemaValidationError,
+  REGION_PRESETS,
+  REGION_LABELS,
+  describeShippingPolicy,
+} from '@freemarket/schema';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { useShopProfile } from '../hooks/useShopProfile.js';
 import { makeBee, uploadJson, uploadFile } from '../lib/swarmWrite.js';
@@ -52,6 +58,18 @@ const THEME_KEYS = [
   'bg', 'surface', 'text', 'muted', 'accent', 'accent2', 'border', 'radius', 'display', 'body',
 ];
 
+/** Region presets offered as checkboxes (resolved via @freemarket/schema). */
+const REGION_OPTIONS = ['EU', 'EEA', 'US', 'NA'];
+
+/** Empty/default shipping form state (worldwide ⇒ ships everywhere). */
+const DEFAULT_SHIPPING = { mode: 'worldwide', regions: [], countries: '', note: '' };
+
+const SHIPPING_MODES = [
+  { value: 'worldwide', label: 'Worldwide (ships everywhere)' },
+  { value: 'allowlist', label: 'Only these (allowlist)' },
+  { value: 'blocklist', label: 'Everywhere except (blocklist)' },
+];
+
 export default function ShopSection() {
   const { registered, profile, isLoading, error: readError, refetch } = useShopProfile();
   const publicClient = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
@@ -61,6 +79,10 @@ export default function ShopSection() {
     name: '', ens: '', tagline: '', blurb: '', logo: '', banner: '',
   });
   const [theme, setTheme] = useState(DEFAULT_THEME);
+  // Shipping policy form (ShopProfile.shipping). `countries` is a comma/space
+  // separated string in the form; it's parsed to an uppercase ISO code array on
+  // build. ADVISORY only — the contract never sees a country (CLAUDE.md §5).
+  const [shipping, setShipping] = useState(DEFAULT_SHIPPING);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
   const [txHash, setTxHash] = useState(null);
@@ -78,6 +100,18 @@ export default function ShopSection() {
         banner: profile.banner || '',
       });
       if (profile.theme) setTheme({ ...DEFAULT_THEME, ...profile.theme });
+      // Prefill the shipping policy (absent ⇒ worldwide, backward compatible).
+      const sp = profile.shipping;
+      if (sp) {
+        setShipping({
+          mode: sp.mode || 'worldwide',
+          regions: Array.isArray(sp.regions) ? sp.regions : [],
+          countries: Array.isArray(sp.countries) ? sp.countries.join(', ') : '',
+          note: sp.note || '',
+        });
+      } else {
+        setShipping(DEFAULT_SHIPPING);
+      }
     }
   }, [profile]);
 
@@ -86,6 +120,29 @@ export default function ShopSection() {
   }
   function setThemeKey(key, value) {
     setTheme((t) => ({ ...t, [key]: value }));
+  }
+  function setShip(key, value) {
+    setShipping((s) => ({ ...s, [key]: value }));
+  }
+  function toggleRegion(r) {
+    setShipping((s) => ({
+      ...s,
+      regions: s.regions.includes(r)
+        ? s.regions.filter((x) => x !== r)
+        : [...s.regions, r],
+    }));
+  }
+
+  /** Parse the comma/space-separated country field into uppercase ISO codes. */
+  function parseCountries(raw) {
+    return Array.from(
+      new Set(
+        (raw || '')
+          .split(/[\s,]+/)
+          .map((c) => c.trim().toUpperCase())
+          .filter(Boolean),
+      ),
+    );
   }
 
   async function uploadImage(key, file) {
@@ -108,6 +165,20 @@ export default function ShopSection() {
     if (form.blurb.trim()) p.blurb = form.blurb.trim();
     if (form.logo.trim()) p.logo = form.logo.trim();
     if (form.banner.trim()) p.banner = form.banner.trim();
+
+    // Shipping policy (ADVISORY, off-chain — CLAUDE.md §5). For worldwide we omit
+    // countries/regions (they're ignored); we still write the mode so the
+    // storefront badge reads "Worldwide" explicitly.
+    const ship = { mode: shipping.mode };
+    if (shipping.mode !== 'worldwide') {
+      const countries = parseCountries(shipping.countries);
+      const regions = (shipping.regions || []).filter((r) => REGION_PRESETS[r]);
+      if (countries.length) ship.countries = countries;
+      if (regions.length) ship.regions = regions;
+    }
+    if (shipping.note.trim()) ship.note = shipping.note.trim();
+    p.shipping = ship;
+
     return p;
   }
 
@@ -222,8 +293,93 @@ export default function ShopSection() {
           </div>
         </Card>
       </div>
+
+      {/* Shipping-region policy (ADVISORY, off-chain — CLAUDE.md §5). */}
+      <Card style={{ marginTop: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <Truck size={16} style={{ color: 'var(--accent2)' }} />
+          <div style={{ fontSize: 13, fontWeight: 600 }}>Shipping region</div>
+          <Pill tone="accent2">{describeShippingPolicy(previewShipping(shipping))}</Pill>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.5, maxWidth: '70ch' }}>
+          Restrict which countries your shop ships to. This is an <strong>advisory storefront
+          policy</strong> — the storefront shows it and disables checkout for excluded countries.
+          It is <strong>NOT enforced on-chain</strong>: the buyer's address (and country) is
+          encrypted and travels off-chain over Swarm PSS (CLAUDE.md §5), so a buyer could still
+          fund escrow — the dispute/refund path is the backstop.
+        </div>
+
+        <Field label="Mode">
+          <select
+            className="fm-input"
+            value={shipping.mode}
+            onChange={(e) => setShip('mode', e.target.value)}
+          >
+            {SHIPPING_MODES.map((m) => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+        </Field>
+
+        <div style={{ opacity: shipping.mode === 'worldwide' ? 0.45 : 1, pointerEvents: shipping.mode === 'worldwide' ? 'none' : 'auto' }}>
+          <Field
+            label="Region presets"
+            hint="Each preset expands into its ISO country codes (e.g. EU → 27 members). Combined with the countries below."
+          >
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
+              {REGION_OPTIONS.map((r) => (
+                <label key={r} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                  <input
+                    type="checkbox"
+                    checked={shipping.regions.includes(r)}
+                    disabled={shipping.mode === 'worldwide'}
+                    onChange={() => toggleRegion(r)}
+                  />
+                  {r} <span style={{ color: 'var(--muted)' }}>({REGION_LABELS[r]}, {REGION_PRESETS[r].length})</span>
+                </label>
+              ))}
+            </div>
+          </Field>
+
+          <Field
+            label="Individual countries"
+            hint="ISO 3166-1 alpha-2 codes, comma or space separated (e.g. US, GB, JP). Uppercased automatically."
+          >
+            <Input
+              value={shipping.countries}
+              onChange={(e) => setShip('countries', e.target.value)}
+              placeholder="US, GB, JP"
+              disabled={shipping.mode === 'worldwide'}
+            />
+          </Field>
+        </div>
+
+        <Field label="Note (optional)" hint="Free text shown to buyers, e.g. “Ships within 3 days”.">
+          <Input
+            value={shipping.note}
+            onChange={(e) => setShip('note', e.target.value)}
+            placeholder="Ships within 3 days"
+          />
+        </Field>
+      </Card>
     </div>
   );
+}
+
+/**
+ * Build a preview ShippingPolicy from the form state so the badge mirrors what
+ * gets uploaded (uses the same describeShippingPolicy as the storefront).
+ */
+function previewShipping(shipping) {
+  if (shipping.mode === 'worldwide') return { mode: 'worldwide' };
+  return {
+    mode: shipping.mode,
+    regions: (shipping.regions || []).filter((r) => REGION_PRESETS[r]),
+    countries: (shipping.countries || '')
+      .split(/[\s,]+/)
+      .map((c) => c.trim().toUpperCase())
+      .filter(Boolean),
+  };
 }
 
 /** Small file picker + preview used for logo/banner. */

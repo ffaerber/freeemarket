@@ -16,7 +16,8 @@
  * path is the default the moment env is configured.
  */
 import React, { useState } from 'react';
-import { Store, ShoppingBag } from 'lucide-react';
+import { Store, ShoppingBag, Truck } from 'lucide-react';
+import { describeShippingPolicy } from '@freemarket/schema';
 import { Styles, Pill } from './ui.jsx';
 import Checkout from './checkout/Checkout.jsx';
 import { useShop } from './hooks/useShop.js';
@@ -237,8 +238,11 @@ function StorefrontView({ shop, groups, isLoading, error, hero, demo }) {
           </div>
           <h1 className="fm-rise" style={{ fontFamily: 'var(--display)', fontSize: 'clamp(40px, 9vw, 76px)', lineHeight: 0.95, margin: 0, fontWeight: 900, maxWidth: '14ch', animationDelay: '.05s' }}>{shop.name}</h1>
           <p className="fm-rise" style={{ fontSize: 'clamp(16px,2.4vw,20px)', color: 'var(--muted)', marginTop: 16, maxWidth: '46ch', animationDelay: '.12s' }}>{shop.tagline}</p>
-          <div className="fm-rise" style={{ marginTop: 20, animationDelay: '.18s' }}>
+          <div className="fm-rise" style={{ marginTop: 20, animationDelay: '.18s', display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
             <Pill>Pays in stablecoins · escrow on Gnosis</Pill>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--muted)' }}>
+              <Truck size={15} style={{ color: 'var(--accent2)' }} /> Ships to: {describeShippingPolicy(shop.shipping)}
+            </span>
           </div>
         </div>
       </header>
@@ -361,6 +365,7 @@ function DemoStorefront() {
     tagline: DEMO_SHOP.tagline,
     blurb: DEMO_SHOP.blurb,
     theme: DEMO_SHOP.theme,
+    shipping: DEMO_SHOP.shipping,
   };
   return <StorefrontView shop={shop} groups={groupListings(listings)} isLoading={false} error={null} hero={DEMO_SHOP.hero} demo />;
 }
