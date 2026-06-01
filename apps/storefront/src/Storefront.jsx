@@ -17,7 +17,7 @@
  */
 import React, { useState } from 'react';
 import { Store, ShoppingBag, Truck } from 'lucide-react';
-import { describeShippingPolicy } from '@freemarket/schema';
+import { describeShippingPolicy, shippingFromPricing } from '@freemarket/schema';
 import { Styles, Pill } from './ui.jsx';
 import Checkout from './checkout/Checkout.jsx';
 import { useShop } from './hooks/useShop.js';
@@ -328,6 +328,16 @@ function StorefrontView({ shop, groups, isLoading, error, hero, demo }) {
                 <span style={{ fontFamily: 'var(--display)', fontSize: 30, color: 'var(--accent)' }}>{selected.priceFormatted}</span>
                 <span style={{ color: 'var(--muted)', fontSize: 13 }}>{selected.symbol}</span>
               </div>
+              {/* DISPLAY-ONLY itemization of the ON-CHAIN total (price already
+                  INCLUDES shipping). Shown only when shipping is non-zero; the
+                  per-variant breakdown switches with the variant selector above.
+                  Shipping is FLAT (not per-region) — the contract never sees the
+                  destination country (§5). */}
+              {selected.hasShipping && (
+                <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 13 }}>
+                  item {selected.itemFormatted} {selected.symbol} + shipping {selected.shippingFormatted} {selected.symbol}
+                </div>
+              )}
               <StockBadge item={selected} />
               {demo ? (
                 <div style={{ marginTop: 18, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border)', color: 'var(--muted)', fontSize: 13 }}>
@@ -350,14 +360,24 @@ function DemoStorefront() {
   // Normalize the demo listings to the shape loadListings() produces, then run
   // them through the SAME pure grouping helper the real path uses — so the demo
   // exercises the real grouped card/selector UI (shared productId ⇒ one card).
-  const listings = DEMO_SHOP.listings.map((l) => ({
-    ...l,
-    id: BigInt(l.id),
-    images: l.images || [],
-    productId: l.productId || '',
-    variantLabel: l.variantLabel || l.variant || l.title,
-    stockCount: l.stock != null ? Number(l.stock) : null,
-  }));
+  const listings = DEMO_SHOP.listings.map((l) => {
+    // Run demo listings through the SAME price-itemization helper as the real
+    // path so the breakdown sub-line renders in DEMO MODE (the on-chain price
+    // here is the demo's priceFormatted; pricing is its optional breakdown).
+    const norm = shippingFromPricing(l.pricing, l.priceFormatted);
+    return {
+      ...l,
+      id: BigInt(l.id),
+      images: l.images || [],
+      productId: l.productId || '',
+      variantLabel: l.variantLabel || l.variant || l.title,
+      stockCount: l.stock != null ? Number(l.stock) : null,
+      pricing: l.pricing || null,
+      itemFormatted: norm.item,
+      shippingFormatted: norm.shipping,
+      hasShipping: norm.hasShipping,
+    };
+  });
   const shop = {
     seller: DEMO_SHOP.seller,
     ens: DEMO_SHOP.ens,

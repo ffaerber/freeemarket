@@ -18,6 +18,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useClient } from 'wagmi';
 import { formatUnits, getAddress } from 'viem';
+import { shippingFromPricing } from '@freemarket/schema';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { erc20Abi } from '../abi/erc20.js';
 import { fetchListingMetadata } from '../lib/swarm.js';
@@ -102,6 +103,16 @@ async function loadListings(client) {
 
       const priceFormatted = formatUnits(price, decimals);
 
+      // Display-only price itemization (CLAUDE.md §6/§7). The on-chain `price`
+      // above is AUTHORITATIVE — it's the full escrowed total the buyer pays via
+      // buy(), and it already INCLUDES shipping. `meta.pricing` is an optional,
+      // FLAT-per-variant breakdown ({ item, shipping }); the shared
+      // `shippingFromPricing` helper reconciles it against the authoritative
+      // priceFormatted (trusting the on-chain price on any mismatch) so we never
+      // show a total the buyer isn't actually paying. Shipping is flat (not
+      // per-region) because the contract never sees the destination (CLAUDE.md §5).
+      const normPricing = shippingFromPricing(meta?.pricing, priceFormatted);
+
       return {
         id,
         token,
@@ -111,7 +122,11 @@ async function loadListings(client) {
         soldOut: stock === 0n,
         decimals,
         symbol,
-        priceFormatted,
+        priceFormatted, // authoritative on-chain total (already includes shipping)
+        pricing: meta?.pricing || null, // raw breakdown from metadata (or null)
+        itemFormatted: normPricing.item, // display: base item cost
+        shippingFormatted: normPricing.shipping, // display: shipping included in price
+        hasShipping: normPricing.hasShipping, // worth itemizing?
         metadataRef,
         title: meta?.title || `Listing #${id}`,
         variant: meta?.variant || '',

@@ -17,7 +17,7 @@
 import React, { useState } from 'react';
 import { PlusCircle, UploadCloud, X, Power, RefreshCw } from 'lucide-react';
 import { useWriteContract, usePublicClient } from 'wagmi';
-import { parseUnits } from 'viem';
+import { parseUnits, formatUnits } from 'viem';
 import { assertListingMetadata, SchemaValidationError } from '@freemarket/schema';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { useMyListings } from '../hooks/useMyListings.js';
@@ -58,6 +58,52 @@ function parseStockCount(raw) {
   const s = String(raw ?? '').trim();
   if (!/^\d+$/.test(s)) throw new Error('Stock must be a whole number (a unit count).');
   return BigInt(s);
+}
+
+/**
+ * Sum a human item price + human shipping cost into the SINGLE on-chain price
+ * (smallest unit) that gets escrowed. Shipping is BAKED INTO the on-chain price
+ * (CLAUDE.md §4/§6) — the contract escrows exactly `item + shipping` and the
+ * buyer pays that total via buy(); the split is recorded only in metadata for
+ * display. Both legs are parsed separately with the token's on-chain decimals
+ * (NEVER hardcoded) and the smallest-unit BigInts are added, so decimal addition
+ * can't drift. Shipping defaults to "0" (free) when blank.
+ *
+ * Shipping is FLAT per listing/variant, not per-region: the contract never sees
+ * the destination country (it's inside the off-chain encrypted address, §5), so
+ * a per-region fee can't be charged on-chain.
+ *
+ * @param {string} itemRaw human item price (e.g. "10.00")
+ * @param {string} shippingRaw human shipping cost (e.g. "3.00"); blank ⇒ 0
+ * @param {number} decimals the token's on-chain decimals
+ * @returns {{ total: bigint, item: string, shipping: string }} total in smallest
+ *   units + the normalized decimal-string legs to store in metadata.pricing.
+ */
+function sumPrice(itemRaw, shippingRaw, decimals) {
+  const item = String(itemRaw ?? '').trim();
+  const shipping = String(shippingRaw ?? '').trim() || '0';
+  const itemSmallest = parseUnits(item, decimals);
+  const shippingSmallest = parseUnits(shipping, decimals);
+  if (itemSmallest < 0n || shippingSmallest < 0n) throw new Error('Price and shipping must be ≥ 0.');
+  return { total: itemSmallest + shippingSmallest, item, shipping };
+}
+
+/** Live preview: human "item + shipping = total SYMBOL", or null if unparseable. */
+function previewTotal(itemRaw, shippingRaw, decimals, symbol) {
+  try {
+    const item = String(itemRaw ?? '').trim();
+    if (!item) return null;
+    const { total } = sumPrice(itemRaw, shippingRaw, decimals);
+    const shipping = String(shippingRaw ?? '').trim() || '0';
+    return {
+      item,
+      shipping,
+      total: formatUnits(total, decimals),
+      symbol: symbol || 'token',
+    };
+  } catch {
+    return null;
+  }
 }
 
 export default function ListingsSection() {
@@ -115,7 +161,11 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
   const [variantLabel, setVariantLabel] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
-  const [price, setPrice] = useState('');
+  // Two human-unit price legs that SUM into the single on-chain price (which is
+  // what's escrowed). `shipping` blank ⇒ free. Split is stored in metadata.pricing
+  // for display only; the on-chain total stays authoritative (CLAUDE.md §4/§6).
+  const [itemPrice, setItemPrice] = useState('');
+  const [shipping, setShipping] = useState('');
   const [stock, setStock] = useState(''); // unit COUNT (not a token amount)
   const [images, setImages] = useState([]); // Swarm refs
   const [busy, setBusy] = useState(false);
@@ -140,7 +190,7 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
   function reset() {
     setTitle(''); setVariant(''); setProductId(''); setVariantLabel('');
     setDescription(''); setCategory('');
-    setPrice(''); setStock(''); setImages([]); setTxHash(null);
+    setItemPrice(''); setShipping(''); setStock(''); setImages([]); setTxHash(null);
     tokenCheck.setToken('');
   }
 
@@ -153,9 +203,14 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
     setTxHash(null);
     try {
       if (!tokenReady) throw new Error('Pick an accepted token first.');
-      // price → smallest unit using the token's on-chain decimals (never hardcoded).
-      const priceSmallest = parseUnits(price.trim(), info.decimals);
-      if (priceSmallest <= 0n) throw new Error('Price must be greater than 0.');
+      // The ON-CHAIN price = item + shipping (both in the token's smallest unit,
+      // using its on-chain decimals — never hardcoded). Shipping is BAKED INTO the
+      // single escrowed price; the split is recorded in metadata.pricing for display
+      // only (CLAUDE.md §4/§6). Contract semantics are UNCHANGED.
+      const { total: priceSmallest, item: itemStr, shipping: shippingStr } = sumPrice(
+        itemPrice, shipping, info.decimals,
+      );
+      if (priceSmallest <= 0n) throw new Error('Total price (item + shipping) must be greater than 0.');
 
       // stock is a COUNT of units — a plain non-negative integer, NEVER run
       // through parseUnits (that is for token amounts). createListing requires > 0.
@@ -171,6 +226,10 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
       if (variantLabel.trim()) meta.variantLabel = variantLabel.trim();
       if (description.trim()) meta.description = description.trim();
       if (category.trim()) meta.category = category.trim();
+      // DISPLAY-ONLY price breakdown of the on-chain total into item + shipping
+      // (decimal strings in token units). The on-chain price stays authoritative;
+      // shippingFromPricing reconciles this against it on the storefront.
+      meta.pricing = { item: itemStr, shipping: shippingStr };
       // payment hint: canonical token/price stay on-chain; this aids rendering.
       meta.payment = { token: info.address, symbol: info.symbol || 'TOKEN', decimals: info.decimals };
       const metaObj = assertListingMetadata(meta);
@@ -239,18 +298,36 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
         </Field>
       </div>
       <Field label="Description"><Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
         <Field label="Category"><Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="fruit" /></Field>
-        <Field
-          label="Price"
-          hint={tokenReady ? `In ${info.symbol || 'token'} (${info.decimals} decimals). Converted to smallest units on submit.` : 'Pick an accepted token to enable.'}
-        >
-          <Input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="14.00" inputMode="decimal" />
-        </Field>
         <Field label="Stock" hint="Units available (a whole number, on-chain). Must be > 0.">
           <Input value={stock} onChange={(e) => setStock(e.target.value)} placeholder="100" inputMode="numeric" />
         </Field>
       </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <Field
+          label="Item price"
+          hint={tokenReady ? `In ${info.symbol || 'token'} (${info.decimals} decimals).` : 'Pick an accepted token to enable.'}
+        >
+          <Input value={itemPrice} onChange={(e) => setItemPrice(e.target.value)} placeholder="10.00" inputMode="decimal" />
+        </Field>
+        <Field
+          label="Shipping"
+          hint="Flat per listing (added to the escrowed total). Blank = free. Per-region shipping can't be charged — the contract never sees the destination (§5)."
+        >
+          <Input value={shipping} onChange={(e) => setShipping(e.target.value)} placeholder="3.00" inputMode="decimal" />
+        </Field>
+      </div>
+      {tokenReady && (() => {
+        const p = previewTotal(itemPrice, shipping, info.decimals, info.symbol);
+        return p ? (
+          <div style={{ marginTop: -4, marginBottom: 8, fontSize: 12.5, color: 'var(--muted)' }}>
+            Total (escrowed): item {p.item} + shipping {p.shipping} ={' '}
+            <strong style={{ color: 'var(--accent)' }}>{p.total} {p.symbol}</strong>
+            {' '}— this is exactly what the buyer pays into escrow via buy().
+          </div>
+        ) : null;
+      })()}
 
       <Field
         label="Settlement token"
@@ -296,7 +373,7 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
       </Field>
 
       <div style={{ marginTop: 8 }}>
-        <Button onClick={onCreate} disabled={busy || disabled || !title.trim() || !tokenReady || !price.trim() || !stock.trim()}>
+        <Button onClick={onCreate} disabled={busy || disabled || !title.trim() || !tokenReady || !itemPrice.trim() || !stock.trim()}>
           <PlusCircle size={16} /> {busy ? 'Creating…' : 'Create listing'}
         </Button>
       </div>
@@ -316,7 +393,15 @@ function ListingRow({ listing, onChanged }) {
   const { writeContractAsync } = useWriteContract();
 
   const [editing, setEditing] = useState(false);
-  const [price, setPrice] = useState(listing.priceFormatted);
+  // Prefill item + shipping from the existing metadata.pricing breakdown if
+  // present; for a legacy listing (no pricing), the whole on-chain price is the
+  // item and shipping is 0 — preserving the current price exactly on save.
+  const [itemPrice, setItemPrice] = useState(
+    listing.pricing?.item != null ? String(listing.pricing.item) : listing.priceFormatted,
+  );
+  const [shipping, setShipping] = useState(
+    listing.pricing?.shipping != null ? String(listing.pricing.shipping) : '0',
+  );
   const [stock, setStock] = useState(String(listing.stockCount ?? 0)); // unit COUNT; 0 allowed on edit
   const [title, setTitle] = useState(listing.title);
   const [description, setDescription] = useState(listing.description || '');
@@ -352,8 +437,12 @@ function ListingRow({ listing, onChanged }) {
     setBusy(true);
     setActionError(null);
     try {
-      const priceSmallest = parseUnits(price.trim(), listing.decimals);
-      if (priceSmallest <= 0n) throw new Error('Price must be greater than 0.');
+      // On-chain price = item + shipping (smallest units). Shipping is baked into
+      // the single escrowed total; the split goes to metadata.pricing for display.
+      const { total: priceSmallest, item: itemStr, shipping: shippingStr } = sumPrice(
+        itemPrice, shipping, listing.decimals,
+      );
+      if (priceSmallest <= 0n) throw new Error('Total price (item + shipping) must be greater than 0.');
 
       // stock is a COUNT — a non-negative integer (0 = sold out / paused), never
       // run through parseUnits. updateListing permits any value including 0.
@@ -369,6 +458,9 @@ function ListingRow({ listing, onChanged }) {
       if (description.trim()) meta.description = description.trim();
       if (listing.category) meta.category = listing.category;
       if (listing.attributes && Object.keys(listing.attributes).length) meta.attributes = listing.attributes;
+      // DISPLAY-ONLY split of the on-chain total; reconciled against the on-chain
+      // price on the storefront (CLAUDE.md §6).
+      meta.pricing = { item: itemStr, shipping: shippingStr };
       meta.payment = { token: listing.token, symbol: listing.symbol, decimals: listing.decimals };
       const metaObj = assertListingMetadata(meta);
 
@@ -405,7 +497,15 @@ function ListingRow({ listing, onChanged }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
             <span style={{ fontWeight: 700 }}>{listing.title}</span>
-            <span style={{ color: 'var(--accent)', fontWeight: 700, whiteSpace: 'nowrap' }}>{listing.priceFormatted} {listing.symbol}</span>
+            <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+              <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{listing.priceFormatted} {listing.symbol}</span>
+              {/* Display-only split (on-chain total is authoritative). */}
+              {listing.pricing?.shipping && Number(listing.pricing.shipping) > 0 && (
+                <span style={{ display: 'block', fontSize: 11.5, color: 'var(--muted)', fontWeight: 500 }}>
+                  item {listing.pricing.item ?? '—'} + ship {listing.pricing.shipping}
+                </span>
+              )}
+            </span>
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>
             #{listing.id.toString()} · {listing.variant || 'no variant'} {' · '}
@@ -442,15 +542,27 @@ function ListingRow({ listing, onChanged }) {
               <Input value={variantLabel} onChange={(e) => setVariantLabel(e.target.value)} placeholder="100 g jar" />
             </Field>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <Field label={`Price (${listing.symbol}, ${listing.decimals} decimals)`}>
-              <Input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+            <Field label={`Item price (${listing.symbol})`}>
+              <Input value={itemPrice} onChange={(e) => setItemPrice(e.target.value)} inputMode="decimal" />
+            </Field>
+            <Field label="Shipping" hint="Flat; blank/0 = free. Added to the escrowed total.">
+              <Input value={shipping} onChange={(e) => setShipping(e.target.value)} inputMode="decimal" />
             </Field>
             <Field label="Stock (units)" hint="Whole number; 0 = sold out / paused.">
               <Input value={stock} onChange={(e) => setStock(e.target.value)} inputMode="numeric" />
             </Field>
           </div>
-          <Button onClick={saveEdit} disabled={busy || UPLOADS_DISABLED || !title.trim() || !price.trim()}>
+          {(() => {
+            const p = previewTotal(itemPrice, shipping, listing.decimals, listing.symbol);
+            return p ? (
+              <div style={{ marginBottom: 10, fontSize: 12.5, color: 'var(--muted)' }}>
+                Total (escrowed): item {p.item} + shipping {p.shipping} ={' '}
+                <strong style={{ color: 'var(--accent)' }}>{p.total} {p.symbol}</strong>
+              </div>
+            ) : null;
+          })()}
+          <Button onClick={saveEdit} disabled={busy || UPLOADS_DISABLED || !title.trim() || !itemPrice.trim()}>
             {busy ? 'Saving…' : 'Save changes'}
           </Button>
         </div>

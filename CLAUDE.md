@@ -178,6 +178,19 @@ interface ListingMetadata {
   // stock/quantity is ALSO ON-CHAIN (listings(id).stock — a unit count
   // decremented by buy()), NOT duplicated here (would drift), mirroring price.
 
+  // --- Price breakdown (OFF-CHAIN display, optional, additive in v1) ---
+  // DISPLAY-ONLY split of the ON-CHAIN price (which ALREADY INCLUDES shipping —
+  // shipping is baked into the single escrowed amount the buyer pays via buy()).
+  // Amounts are DECIMAL STRINGS in the listing token's units (e.g. "10.00"), NOT
+  // smallest-unit ints. item + shipping SHOULD sum to the on-chain price; the
+  // shared `shippingFromPricing(pricing, priceFormatted)` helper reconciles them
+  // against the AUTHORITATIVE on-chain price (item anchors; shipping re-derived as
+  // price − item, clamped ≥ 0) so a stale/mismatched breakdown never shows a total
+  // the buyer isn't paying. FLAT per variant — NOT per-region: the contract never
+  // sees the destination country (it's in the off-chain encrypted address, §5),
+  // so a per-region shipping fee can't be charged on-chain. NO contract change.
+  pricing?: { item?: string; shipping?: string };
+
   // --- Product variant grouping (OFF-CHAIN, optional, additive in v1) ---
   // Each variant stays its own on-chain Listing (own price + own on-chain stock);
   // these fields only tell the storefront/CMS to render multiple pack sizes /
@@ -204,6 +217,8 @@ To productionize:
 - Replace glyph placeholders with Swarm-hosted images.
 
 **Variant grouping (built).** Listings sharing an OFF-CHAIN `productId` (see §6) render as ONE product card with a variant selector instead of separate cards; price + stock stay ON-CHAIN per variant. `useListings`/`useMyListings` surface `productId`/`variantLabel` and a pure `groupListings()` helper collapses the flat list into groups (`{ productId, title, variants }`, price-sorted). The card shows a price range; the modal's selector switches price/stock/images and re-targets the Buy at that variant's `listingId`; a fully-sold-out group shows "Sold out"; a group of one renders exactly as before (no selector). The CMS create/edit forms let the seller set `productId` + `variantLabel`. No contract change.
+
+**Shipping-cost itemization (built).** Shipping is baked into the ON-CHAIN price (the single escrowed amount paid via `buy()`) with a DISPLAY-ONLY split in `ListingMetadata.pricing` (`{ item, shipping }`, decimal strings; see §6). The CMS create/edit forms enter **item price + shipping** as two human-unit fields and `parseUnits` each by the token's on-chain decimals, then **sum the smallest-unit BigInts** into the single `price` passed to `createListing`/`updateListing` (contract semantics unchanged), while writing `pricing: { item, shipping }` into the uploaded metadata; a live "Total (escrowed) = item + shipping" preview shows what the buyer pays. The storefront (`useListings`) surfaces `pricing` and runs the shared `shippingFromPricing(pricing, priceFormatted)` helper to derive `itemFormatted`/`shippingFormatted` (on-chain price is authoritative; mismatches re-derive shipping = price − item). The product modal and the Checkout pay step itemize "item + shipping = total escrowed" when shipping is non-zero; per-variant breakdowns switch with the variant selector. Shipping is **flat per variant, not per-region** — the contract never sees the destination country (§5). Legacy listings without `pricing` render exactly as before (single price). No contract change.
 
 **Shipping-region gate (built).** A shop-level `ShopProfile.shipping` policy (§6 — `worldwide`/`allowlist`/`blocklist` + region presets + ISO countries) drives an ADVISORY checkout gate. The CMS Shop section lets the seller set the mode, region-preset checkboxes (EU/EEA/US/NA), individual ISO country codes, and an optional note; the storefront shows a "Ships to: …" badge (`describeShippingPolicy`) and, in checkout, asks the buyer's destination country and **disables the pay/send button when `canShipTo(policy, country)` is false** (with a clear "{shop} doesn't ship to {country}" note that final eligibility is the seller's policy and an un-shippable order is refunded via dispute). This is enforced OFF-CHAIN only — the country can't be checked on-chain because the address is ECIES-encrypted and sent over PSS (§5); the country rides inside that already-encrypted payload. The ship/no-ship logic (`canShipTo`, `REGION_PRESETS`, `describeShippingPolicy`) lives in `@freemarket/schema` and is shared by both apps (no duplication). No contract change.
 

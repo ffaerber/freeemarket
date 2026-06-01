@@ -13,6 +13,7 @@ import {
   REGION_PRESETS,
   resolveShippingCountries,
   SchemaValidationError,
+  shippingFromPricing,
   type ListingMetadata,
   type ShopProfile,
 } from '../src/index.js';
@@ -163,6 +164,84 @@ test('isListingMetadata rejects unknown keys in the payment hint', () => {
     }),
     false,
   );
+});
+
+// --- pricing breakdown (display-only split of the on-chain price) ---
+
+test('isListingMetadata accepts a listing with a pricing breakdown', () => {
+  assert.equal(
+    isListingMetadata({
+      ...validListing,
+      pricing: { item: '10.00', shipping: '3.00' },
+    }),
+    true,
+  );
+});
+
+test('isListingMetadata accepts a pricing breakdown with only item', () => {
+  assert.equal(
+    isListingMetadata({ ...validListing, pricing: { item: '10' } }),
+    true,
+  );
+});
+
+test('isListingMetadata: omitting pricing still validates (backward compat)', () => {
+  // validListing has no pricing field at all.
+  assert.equal(isListingMetadata(validListing), true);
+  assert.equal(isListingMetadata({ version: 1, title: 'X', images: [] }), true);
+});
+
+test('isListingMetadata rejects a non-numeric shipping string', () => {
+  assert.equal(
+    isListingMetadata({ ...validListing, pricing: { shipping: 'free' } }),
+    false,
+  );
+});
+
+test('isListingMetadata rejects unknown keys in the pricing breakdown', () => {
+  assert.equal(
+    isListingMetadata({
+      ...validListing,
+      pricing: { item: '10', region: 'EU' },
+    }),
+    false,
+  );
+});
+
+test('shippingFromPricing: item + shipping reconcile to the on-chain price', () => {
+  const r = shippingFromPricing({ item: '10', shipping: '3' }, '13');
+  assert.equal(r.item, '10');
+  assert.equal(r.shipping, '3');
+  assert.equal(r.hasShipping, true);
+});
+
+test('shippingFromPricing: only item ⇒ shipping derived from the price', () => {
+  const r = shippingFromPricing({ item: '10' }, '13');
+  assert.equal(r.item, '10');
+  assert.equal(r.shipping, '3');
+  assert.equal(r.hasShipping, true);
+});
+
+test('shippingFromPricing: no breakdown ⇒ whole price is the item, no shipping', () => {
+  const r = shippingFromPricing({}, '13');
+  assert.equal(r.item, '13');
+  assert.equal(r.shipping, '0');
+  assert.equal(r.hasShipping, false);
+});
+
+test('shippingFromPricing: mismatch trusts the on-chain price (item anchors)', () => {
+  // item + shipping = 15 ≠ 13; trust on-chain, re-derive shipping = 13 − 10 = 3.
+  const r = shippingFromPricing({ item: '10', shipping: '5' }, '13');
+  assert.equal(r.item, '10');
+  assert.equal(r.shipping, '3');
+  assert.equal(r.hasShipping, true);
+});
+
+test('shippingFromPricing: only shipping ⇒ item derived from the price', () => {
+  const r = shippingFromPricing({ shipping: '3' }, '13');
+  assert.equal(r.item, '10');
+  assert.equal(r.shipping, '3');
+  assert.equal(r.hasShipping, true);
 });
 
 // --- product variant grouping (off-chain) ---

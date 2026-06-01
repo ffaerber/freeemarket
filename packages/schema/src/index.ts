@@ -76,6 +76,36 @@ export interface ShopProfile {
   shipping?: ShippingPolicy;
 }
 
+/**
+ * DISPLAY-ONLY breakdown of a listing's ON-CHAIN price (OPTIONAL, additive in
+ * v1, backward compatible).
+ *
+ * Why this is display-only:
+ *   (a) The listing's ON-CHAIN `price` (a smallest-unit integer in the Marketplace
+ *       contract) is AUTHORITATIVE — it's the single amount actually escrowed and
+ *       paid by the buyer via `buy()`. That price ALREADY INCLUDES shipping.
+ *   (b) `item` + `shipping` here are a human-readable split of that total so the
+ *       storefront can itemize it ("item €10.00 + shipping €3.00 = €13.00"). They
+ *       SHOULD sum to the on-chain price; if they don't, the storefront trusts the
+ *       on-chain price and derives the difference (see `shippingFromPricing`).
+ *   (c) Shipping is FLAT — one figure per listing/variant, NOT per-region. The
+ *       contract never sees the destination country (it travels off-chain inside
+ *       the encrypted address; CLAUDE.md §5), so a per-region shipping fee cannot
+ *       be charged on-chain.
+ *   (d) Amounts are DECIMAL STRINGS in the listing token's units (e.g. "10.00"),
+ *       NOT smallest-unit integers (mirroring how `price` itself is on-chain, not
+ *       duplicated here as a number).
+ */
+export interface PricingBreakdown {
+  /** Base item cost as a decimal string in the listing token's units (e.g. "10.00"). */
+  item?: string;
+  /**
+   * Shipping cost INCLUDED in the on-chain price, as a decimal string in the
+   * listing token's units (e.g. "3.00"). FLAT per variant (not per-region).
+   */
+  shipping?: string;
+}
+
 /** Pointed to by `Listing.metadata` (bytes32 Swarm ref). */
 export interface ListingMetadata {
   version: 1;
@@ -88,6 +118,15 @@ export interface ListingMetadata {
   // price is ON-CHAIN (in the listing token's smallest unit), not here.
   // stock/quantity is likewise ON-CHAIN (listings(id).stock — a unit COUNT,
   // decremented by buy()), deliberately NOT duplicated here to avoid drift.
+
+  /**
+   * OPTIONAL display-only breakdown of the ON-CHAIN price into item + shipping
+   * (see `PricingBreakdown`). The on-chain `price` stays authoritative and is
+   * what the buyer actually pays via escrow — this only records how it splits so
+   * the storefront can itemize it. FLAT per variant (not per-region; CLAUDE.md
+   * §5). Absent ⇒ the listing renders with just its single on-chain price.
+   */
+  pricing?: PricingBreakdown;
 
   // --- Product variant grouping (OFF-CHAIN, optional, additive in v1) ---
   // Each variant remains its own on-chain Listing (own price + own on-chain
@@ -124,6 +163,8 @@ export const SCHEMA_VERSION = 1 as const;
 export {
   shopThemeSchema,
   shippingPolicySchema,
+  paymentHintSchema,
+  pricingBreakdownSchema,
   shopProfileSchema,
   listingMetadataSchema,
   allSchemas,
@@ -144,3 +185,7 @@ export {
   canShipTo,
   describeShippingPolicy,
 } from './regions.js';
+
+// Pricing-breakdown reconciliation (shared by CMS + storefront). DISPLAY ONLY —
+// the on-chain price is always authoritative. See ./pricing.ts.
+export { shippingFromPricing, type NormalizedPricing } from './pricing.js';

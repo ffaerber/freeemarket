@@ -99,6 +99,29 @@ export const paymentHintSchema: SchemaObject = {
   },
 };
 
+/**
+ * Human-readable breakdown of the listing's ON-CHAIN price (which already
+ * INCLUDES shipping). DISPLAY ONLY — the on-chain `price` is the single amount
+ * actually escrowed/paid via `buy()`; this just records how that total splits
+ * into item + shipping so the storefront can itemize it. FLAT (one shipping
+ * figure per listing/variant), NOT per-region: the contract never sees the
+ * destination country (it's inside the off-chain encrypted address, CLAUDE.md
+ * §5), so a per-region shipping fee can't be charged on-chain. Amounts are
+ * DECIMAL STRINGS in the listing token's units (e.g. "10.00"), NOT smallest-unit
+ * integers. `item` + `shipping` SHOULD sum to the on-chain price; storefronts
+ * treat the on-chain price as authoritative (see `shippingFromPricing`).
+ */
+export const pricingBreakdownSchema: SchemaObject = {
+  $id: 'https://freemarket.eth/schema/pricing-breakdown.json',
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    // Decimal strings in token units (e.g. "10.00"), NOT smallest-unit ints.
+    item: { type: 'string', pattern: '^[0-9]+(\\.[0-9]+)?$' },
+    shipping: { type: 'string', pattern: '^[0-9]+(\\.[0-9]+)?$' },
+  },
+};
+
 /** Pointed to by `Listing.metadata` (bytes32 Swarm ref). Price is on-chain. */
 export const listingMetadataSchema: SchemaObject = {
   $id: 'https://freemarket.eth/schema/listing-metadata.json',
@@ -118,6 +141,11 @@ export const listingMetadataSchema: SchemaObject = {
     },
     // Display hint only; on-chain token/price remain authoritative.
     payment: { $ref: 'https://freemarket.eth/schema/payment-hint.json' },
+    // DISPLAY-ONLY breakdown of the ON-CHAIN price into item + shipping. The
+    // on-chain price already INCLUDES shipping and stays authoritative; this
+    // only itemizes it. FLAT per variant (not per-region — the contract can't
+    // see the destination country, CLAUDE.md §5). See `pricingBreakdownSchema`.
+    pricing: { $ref: 'https://freemarket.eth/schema/pricing-breakdown.json' },
     // Product variant grouping (OFF-CHAIN, optional, additive in v1). Each
     // variant stays its own on-chain Listing; these only drive how the
     // storefront/CMS group + label variants under one card. See ./index.ts.
@@ -132,6 +160,7 @@ export const allSchemas: SchemaObject[] = [
   shopThemeSchema,
   shippingPolicySchema,
   paymentHintSchema,
+  pricingBreakdownSchema,
   shopProfileSchema,
   listingMetadataSchema,
 ];

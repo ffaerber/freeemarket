@@ -9,6 +9,7 @@ import {
   shopThemeSchema,
   shippingPolicySchema,
   paymentHintSchema,
+  pricingBreakdownSchema,
 } from './schemas.js';
 import type { ShopProfile, ListingMetadata } from './index.js';
 
@@ -18,6 +19,7 @@ const ajv = new Ajv({ allErrors: true });
 ajv.addSchema(shopThemeSchema);
 ajv.addSchema(shippingPolicySchema);
 ajv.addSchema(paymentHintSchema);
+ajv.addSchema(pricingBreakdownSchema);
 
 const _validateShop: ValidateFunction = ajv.compile(shopProfileSchema);
 const _validateListing: ValidateFunction = ajv.compile(listingMetadataSchema);
