@@ -7,6 +7,7 @@ import {
   shopProfileSchema,
   listingMetadataSchema,
   shopThemeSchema,
+  shippingPolicySchema,
   paymentHintSchema,
 } from './schemas.js';
 import type { ShopProfile, ListingMetadata } from './index.js';
@@ -15,6 +16,7 @@ const ajv = new Ajv({ allErrors: true });
 
 // Register the shared $ref'd schemas once so resolution works.
 ajv.addSchema(shopThemeSchema);
+ajv.addSchema(shippingPolicySchema);
 ajv.addSchema(paymentHintSchema);
 
 const _validateShop: ValidateFunction = ajv.compile(shopProfileSchema);

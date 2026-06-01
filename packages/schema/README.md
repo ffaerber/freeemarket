@@ -10,12 +10,19 @@ read them. Prices are **not** here — they live on-chain in `Marketplace` as US
 ## What's in here
 
 - **TypeScript types** (`src/index.ts`) — `ShopProfile`, `ListingMetadata`,
-  `ShopTheme`, `SCHEMA_VERSION`.
+  `ShopTheme`, `ShippingPolicy`, `SCHEMA_VERSION`.
 - **JSON Schema** (`src/schemas.ts`) — draft-07 definitions mirroring the types,
   for validation in any environment (`shopProfileSchema`, `listingMetadataSchema`,
-  `shopThemeSchema`, `allSchemas`).
+  `shopThemeSchema`, `shippingPolicySchema`, `allSchemas`).
 - **Runtime validators** (`src/validate.ts`) — ajv-backed helpers for validating
   untrusted objects fetched from Swarm.
+- **Shipping-region logic** (`src/regions.ts`) — `REGION_PRESETS`/`REGION_LABELS`,
+  `resolveShippingCountries`, `canShipTo`, `describeShippingPolicy`. The shop's
+  optional `ShopProfile.shipping` policy (`worldwide` / `allowlist` / `blocklist`
+  + region presets + ISO country codes) is **advisory** — it gates the storefront
+  UI only and is **not on-chain-enforced** (the buyer's country travels off-chain
+  inside the encrypted address; CLAUDE.md §5). Both apps import this single
+  resolver so the country/region lists never diverge.
 
 ## Usage
 

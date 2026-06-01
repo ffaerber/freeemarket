@@ -6,8 +6,12 @@ import { test } from 'node:test';
 import {
   assertListingMetadata,
   assertShopProfile,
+  canShipTo,
+  describeShippingPolicy,
   isListingMetadata,
   isShopProfile,
+  REGION_PRESETS,
+  resolveShippingCountries,
   SchemaValidationError,
   type ListingMetadata,
   type ShopProfile,
@@ -189,4 +193,118 @@ test('isListingMetadata: grouping fields are optional (omitting still validates)
 
 test('isListingMetadata rejects a non-string productId', () => {
   assert.equal(isListingMetadata({ ...validListing, productId: 42 }), false);
+});
+
+// --- shipping-region policy (off-chain, advisory) ---
+
+test('isShopProfile accepts a valid shipping policy', () => {
+  assert.equal(
+    isShopProfile({
+      ...validShop,
+      shipping: {
+        mode: 'allowlist',
+        regions: ['EU'],
+        countries: ['US'],
+        note: 'Ships within 3 days',
+      },
+    }),
+    true,
+  );
+});
+
+test('isShopProfile: omitting shipping still validates (backward compat)', () => {
+  assert.equal(isShopProfile(validShop), true);
+  // explicit absence is also fine
+  const { ens, ...minimal } = validShop;
+  assert.equal(isShopProfile(minimal), true);
+});
+
+test('isShopProfile rejects a shipping policy missing mode', () => {
+  assert.equal(
+    isShopProfile({ ...validShop, shipping: { countries: ['US'] } }),
+    false,
+  );
+});
+
+test('isShopProfile rejects a bad shipping mode', () => {
+  assert.equal(
+    isShopProfile({ ...validShop, shipping: { mode: 'only-eu' } }),
+    false,
+  );
+});
+
+test('isShopProfile rejects lowercase country codes', () => {
+  assert.equal(
+    isShopProfile({ ...validShop, shipping: { mode: 'allowlist', countries: ['de'] } }),
+    false,
+  );
+});
+
+test('isShopProfile rejects 3-letter country codes', () => {
+  assert.equal(
+    isShopProfile({ ...validShop, shipping: { mode: 'blocklist', countries: ['USA'] } }),
+    false,
+  );
+});
+
+test('isShopProfile rejects unknown keys in the shipping policy', () => {
+  assert.equal(
+    isShopProfile({ ...validShop, shipping: { mode: 'worldwide', evil: true } }),
+    false,
+  );
+});
+
+// --- region resolver / canShipTo logic ---
+
+test('canShipTo: worldwide allows anything (incl. empty country)', () => {
+  const p = { mode: 'worldwide' as const };
+  assert.equal(canShipTo(p, 'US'), true);
+  assert.equal(canShipTo(p, 'DE'), true);
+  assert.equal(canShipTo(p, ''), true);
+  // No policy at all ⇒ worldwide.
+  assert.equal(canShipTo(undefined, 'US'), true);
+});
+
+test('canShipTo: allowlist EU allows DE, rejects US', () => {
+  const p = { mode: 'allowlist' as const, regions: ['EU'] };
+  assert.equal(canShipTo(p, 'DE'), true);
+  assert.equal(canShipTo(p, 'US'), false);
+});
+
+test('canShipTo: blocklist [US] rejects US, allows DE', () => {
+  const p = { mode: 'blocklist' as const, countries: ['US'] };
+  assert.equal(canShipTo(p, 'US'), false);
+  assert.equal(canShipTo(p, 'DE'), true);
+});
+
+test('canShipTo: regions expand (EU includes FR; case-insensitive country)', () => {
+  const p = { mode: 'allowlist' as const, regions: ['EU'] };
+  assert.equal(canShipTo(p, 'FR'), true);
+  assert.equal(canShipTo(p, 'fr'), true);
+  assert.ok(REGION_PRESETS.EU.includes('FR'));
+});
+
+test('resolveShippingCountries unions countries + region expansions', () => {
+  const { mode, allowed } = resolveShippingCountries({
+    mode: 'allowlist',
+    regions: ['US'],
+    countries: ['JP'],
+  });
+  assert.equal(mode, 'allowlist');
+  assert.equal(allowed?.has('US'), true);
+  assert.equal(allowed?.has('JP'), true);
+  assert.equal(allowed?.has('DE'), false);
+});
+
+test('describeShippingPolicy summarizes into human text', () => {
+  assert.equal(describeShippingPolicy(undefined), 'Worldwide');
+  assert.equal(describeShippingPolicy({ mode: 'worldwide' }), 'Worldwide');
+  assert.equal(
+    describeShippingPolicy({ mode: 'allowlist', regions: ['EU'], countries: ['US'] }),
+    'EU & US',
+  );
+  assert.equal(
+    describeShippingPolicy({ mode: 'blocklist', countries: ['RU', 'BY'] }),
+    'Worldwide except RU, BY',
+  );
 });
