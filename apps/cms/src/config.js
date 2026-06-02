@@ -46,6 +46,51 @@ export const KNOWN_TOKENS = envOr('VITE_KNOWN_TOKENS', '')
   .map((t) => t.trim())
   .filter(Boolean);
 
+/**
+ * Hardcoded RECOMMENDED settlement tokens for the listing form's dropdown.
+ *
+ * These are only SUGGESTIONS — the canonical accepted-token allowlist lives
+ * ON-CHAIN (the contract's owner-curated `acceptedTokens`, CLAUDE.md §4), and
+ * every pick (recommended OR custom) is still verified against it via
+ * useAcceptedToken before a listing can be created. The seller can always pick
+ * "Custom address…" to settle in any other token the platform owner has
+ * accepted. These canonical Gnosis Chain (id 100) addresses mirror the deploy
+ * script's defaults (contracts/script/Deploy.s.sol).
+ */
+export const RECOMMENDED_TOKENS = [
+  {
+    address: '0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d',
+    symbol: 'WXDAI',
+    name: 'Wrapped xDAI — native stable, 18 dp',
+  },
+  {
+    address: '0xDDAfbb505ad214D7b80b1f830fcCc89B60fb7A83',
+    symbol: 'USDC',
+    name: 'USDC — bridged via Omnibridge, 6 dp',
+  },
+  {
+    address: '0x2a22f9c3b484c3629090FeED35F17Ff8F88f76F0',
+    symbol: 'USDC.e',
+    name: 'USDC.e — Circle via Stargate, 6 dp',
+  },
+];
+
+/**
+ * Full dropdown option set: the hardcoded recommendations PLUS any extra
+ * addresses supplied via VITE_KNOWN_TOKENS (deduped, case-insensitive). The
+ * env extras carry no label since we only know their address up front; their
+ * symbol/decimals are still resolved on-chain when selected.
+ */
+export const TOKEN_OPTIONS = (() => {
+  const seen = new Set(RECOMMENDED_TOKENS.map((t) => t.address.toLowerCase()));
+  const extras = KNOWN_TOKENS.filter((a) => !seen.has(a.toLowerCase())).map((address) => ({
+    address,
+    symbol: undefined,
+    name: 'From VITE_KNOWN_TOKENS',
+  }));
+  return [...RECOMMENDED_TOKENS, ...extras];
+})();
+
 /** Gnosis Chain id — the escrow contract lives here regardless of ENS chain. */
 export const GNOSIS_CHAIN_ID = 100;
 

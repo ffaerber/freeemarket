@@ -32,13 +32,14 @@ import {
   BEE_URL,
   POSTAGE_BATCH_ID,
   UPLOADS_DISABLED,
-  KNOWN_TOKENS,
+  TOKEN_OPTIONS,
 } from '../config.js';
 import {
   Card,
   Field,
   Input,
   Textarea,
+  Select,
   Button,
   GhostButton,
   SectionHeader,
@@ -171,6 +172,9 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
   const [txHash, setTxHash] = useState(null);
+  // Token picker mode: false ⇒ choosing from the recommended dropdown; true ⇒
+  // the seller picked "Custom address…" and types any other accepted token.
+  const [customToken, setCustomToken] = useState(false);
 
   const info = tokenCheck.info;
   const tokenReady = info?.accepted && info?.decimals != null;
@@ -191,6 +195,7 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
     setTitle(''); setVariant(''); setProductId(''); setVariantLabel('');
     setDescription(''); setCategory('');
     setItemPrice(''); setShipping(''); setStock(''); setImages([]); setTxHash(null);
+    setCustomToken(false);
     tokenCheck.setToken('');
   }
 
@@ -331,18 +336,37 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
 
       <Field
         label="Settlement token"
-        hint="Must be on the marketplace accepted-token allowlist. Decimals/symbol are read on-chain."
+        hint="Pick a recommended Gnosis token or enter a custom address. Either way it must be on the marketplace's on-chain accepted-token allowlist; symbol/decimals are read on-chain."
       >
-        <Input
-          value={tokenCheck.token}
-          onChange={(e) => tokenCheck.setToken(e.target.value)}
-          placeholder="0x… token address"
-          list="known-tokens"
-        />
-        {KNOWN_TOKENS.length > 0 && (
-          <datalist id="known-tokens">
-            {KNOWN_TOKENS.map((t) => <option key={t} value={t} />)}
-          </datalist>
+        <Select
+          value={customToken ? '__custom__' : (tokenCheck.token || '')}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === '__custom__') {
+              setCustomToken(true);
+              tokenCheck.setToken('');
+            } else {
+              setCustomToken(false);
+              tokenCheck.setToken(v);
+            }
+          }}
+        >
+          <option value="" disabled>Select a token…</option>
+          {TOKEN_OPTIONS.map((t) => (
+            <option key={t.address} value={t.address}>
+              {(t.symbol ? `${t.symbol} — ${t.name}` : t.name)} ({t.address.slice(0, 6)}…{t.address.slice(-4)})
+            </option>
+          ))}
+          <option value="__custom__">Custom address…</option>
+        </Select>
+        {customToken && (
+          <div style={{ marginTop: 8 }}>
+            <Input
+              value={tokenCheck.token}
+              onChange={(e) => tokenCheck.setToken(e.target.value)}
+              placeholder="0x… token address"
+            />
+          </div>
         )}
         <div style={{ marginTop: 6, fontSize: 12.5 }}>
           {tokenCheck.isLoading && <span style={{ color: 'var(--muted)' }}>Checking token…</span>}

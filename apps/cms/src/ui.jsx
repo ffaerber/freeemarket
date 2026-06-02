@@ -143,6 +143,11 @@ export function Textarea(props) {
   return <textarea className="fm-input" style={{ resize: 'vertical', ...props.style }} {...props} />;
 }
 
+/** Native dropdown bound to the shared .fm-input style. */
+export function Select(props) {
+  return <select className="fm-input" {...props} />;
+}
+
 /** Card surface — the standard admin container. */
 export function Card({ children, style }) {
   return (
