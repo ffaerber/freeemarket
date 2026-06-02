@@ -73,6 +73,11 @@ export const RECOMMENDED_TOKENS = [
     symbol: 'USDC.e',
     name: 'USDC.e — Circle via Stargate, 6 dp',
   },
+  {
+    address: '0x8e5bBbb09Ed1ebdE8674Cda39A0c169401db4252',
+    symbol: 'WBTC',
+    name: 'Wrapped BTC on xDai — bridged, 8 dp',
+  },
 ];
 
 /**
