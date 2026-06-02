@@ -34,7 +34,7 @@ import {
   GNOSIS_CHAIN_ID,
   EXPLORER_URL,
   BEE_URL,
-  POSTAGE_BATCH_ID,
+  MESSAGING_BATCH_ID,
 } from '../config.js';
 import { Pill } from '../ui.jsx';
 
@@ -224,7 +224,7 @@ export default function Checkout({ shop, item, onClose }) {
         publicClient,
         signMessage,
         beeUrl: BEE_URL,
-        postageBatchId: POSTAGE_BATCH_ID,
+        postageBatchId: MESSAGING_BATCH_ID,
       });
       setDeliveryResult(result);
       setPhase('done');

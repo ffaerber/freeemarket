@@ -37,8 +37,15 @@ export const CONTACT_REGISTRY = envOr('VITE_CONTACT_REGISTRY', '');
  * encrypted address over PSS via `BeeTransport`. The buyer needs a writeable
  * full Bee node + batch (same caveat as the CMS, CLAUDE.md §5). NOT a secret,
  * but per-node; when unset the messaging boundary falls back to its stub.
+ *
+ * The buyer only ever needs the EPHEMERAL messaging batch (sending the address;
+ * reading the seller's tracking reply needs no batch). `MESSAGING_BATCH_ID`
+ * prefers the dedicated `VITE_MESSAGING_BATCH_ID` and falls back to the legacy
+ * single `VITE_POSTAGE_BATCH_ID` (see docs/POSTAGE.md). Use a SHORT-LIVED batch
+ * so the ciphertext self-expires after fulfillment.
  */
 export const POSTAGE_BATCH_ID = envOr('VITE_POSTAGE_BATCH_ID', '');
+export const MESSAGING_BATCH_ID = envOr('VITE_MESSAGING_BATCH_ID', POSTAGE_BATCH_ID);
 
 /** Gnosis Chain id — the escrow contract lives here regardless of ENS chain. */
 export const GNOSIS_CHAIN_ID = 100;

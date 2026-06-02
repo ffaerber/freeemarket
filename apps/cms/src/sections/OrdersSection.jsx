@@ -25,7 +25,7 @@ import { Lock, Clock, Gavel, Truck, RefreshCw, ShieldCheck, KeyRound, Send } fro
 import { marketplaceAbi, orderStateLabel } from '../abi/marketplace.js';
 import { useOrders } from '../hooks/useOrders.js';
 import { receiveDecryptedAddress, sendShipmentUpdateFromCms, makeSignDigest } from '../messaging/index.js';
-import { MARKETPLACE_ADDRESS, GNOSIS_CHAIN_ID, EXPLORER_URL, BEE_URL, POSTAGE_BATCH_ID } from '../config.js';
+import { MARKETPLACE_ADDRESS, GNOSIS_CHAIN_ID, EXPLORER_URL, BEE_URL, MESSAGING_BATCH_ID } from '../config.js';
 import { Card, Button, GhostButton, SectionHeader, Banner, ErrorNote, Pill } from '../ui.jsx';
 
 const STATE = { NONE: 0, FUNDED: 1, COMPLETED: 2, DISPUTED: 3, REFUNDED: 4 };
@@ -255,7 +255,7 @@ function OrderRow({ order, autoReleasePeriod, isArbiter, sellerAddress, privateK
         publicClient,
         signMessage,
         beeUrl: BEE_URL,
-        postageBatchId: POSTAGE_BATCH_ID,
+        postageBatchId: MESSAGING_BATCH_ID,
       });
       setSendResult(result);
     } catch (err) {
@@ -382,8 +382,8 @@ function OrderRow({ order, autoReleasePeriod, isArbiter, sellerAddress, privateK
         {sendResult?.stub && (
           <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.5 }}>
             <strong>Tracking send unconfigured.</strong> Set <code>VITE_CONTACT_REGISTRY</code> (to resolve the buyer's
-            key), <code>VITE_BEE_URL</code> (full node), and <code>VITE_POSTAGE_BATCH_ID</code>, and connect your
-            wallet to sign. Falls back to a stub until then.
+            key), <code>VITE_BEE_URL</code> (full node), and <code>VITE_MESSAGING_BATCH_ID</code> (falls back to
+            <code>VITE_POSTAGE_BATCH_ID</code>), and connect your wallet to sign. Falls back to a stub until then.
           </div>
         )}
         <ErrorNote error={sendError} />

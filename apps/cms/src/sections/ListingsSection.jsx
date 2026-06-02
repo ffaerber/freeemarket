@@ -30,7 +30,7 @@ import {
   GNOSIS_CHAIN_ID,
   EXPLORER_URL,
   BEE_URL,
-  POSTAGE_BATCH_ID,
+  STORAGE_BATCH_ID,
   UPLOADS_DISABLED,
   TOKEN_OPTIONS,
 } from '../config.js';
@@ -123,7 +123,7 @@ export default function ListingsSection() {
         <Banner>Register your shop first (Shop tab) — createListing reverts without a registered shop.</Banner>
       )}
       {UPLOADS_DISABLED && (
-        <Banner>No Swarm postage batch (VITE_POSTAGE_BATCH_ID) — image + metadata uploads are disabled. See CLAUDE.md §5.</Banner>
+        <Banner>No Swarm storage batch (VITE_STORAGE_BATCH_ID, falls back to VITE_POSTAGE_BATCH_ID) — image + metadata uploads are disabled. Create one in the Storage tab. See docs/POSTAGE.md.</Banner>
       )}
       {error && <Banner tone="error">Couldn't load listings: {error.shortMessage || error.message}</Banner>}
 
@@ -184,7 +184,7 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
     setActionError(null);
     try {
       const bee = makeBee(BEE_URL);
-      const ref = await uploadFile(bee, POSTAGE_BATCH_ID, file);
+      const ref = await uploadFile(bee, STORAGE_BATCH_ID, file);
       setImages((xs) => [...xs, ref]);
     } catch (err) {
       setActionError(err);
@@ -241,7 +241,7 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
 
       // Upload metadata JSON.
       const bee = makeBee(BEE_URL);
-      const metaRef = await uploadJson(bee, POSTAGE_BATCH_ID, metaObj);
+      const metaRef = await uploadJson(bee, STORAGE_BATCH_ID, metaObj);
 
       // createListing(token, price, stock, metadata).
       const hash = await writeContractAsync({
@@ -489,7 +489,7 @@ function ListingRow({ listing, onChanged }) {
       const metaObj = assertListingMetadata(meta);
 
       const bee = makeBee(BEE_URL);
-      const metaRef = await uploadJson(bee, POSTAGE_BATCH_ID, metaObj);
+      const metaRef = await uploadJson(bee, STORAGE_BATCH_ID, metaObj);
 
       const hash = await writeContractAsync({
         abi: marketplaceAbi,

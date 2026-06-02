@@ -19,11 +19,12 @@
  */
 import React, { useState } from 'react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { Store, Package, Inbox, Wallet, Power } from 'lucide-react';
+import { Store, Package, Inbox, HardDrive, Wallet, Power } from 'lucide-react';
 import { Styles, Button, GhostButton, Banner, Pill } from './ui.jsx';
 import ShopSection from './sections/ShopSection.jsx';
 import ListingsSection from './sections/ListingsSection.jsx';
 import OrdersSection from './sections/OrdersSection.jsx';
+import StorageSection from './sections/StorageSection.jsx';
 import {
   ADMIN_THEME,
   UNCONFIGURED,
@@ -37,6 +38,7 @@ const TABS = [
   { id: 'shop', label: 'Shop', icon: Store, Comp: ShopSection },
   { id: 'listings', label: 'Listings', icon: Package, Comp: ListingsSection },
   { id: 'orders', label: 'Orders', icon: Inbox, Comp: OrdersSection },
+  { id: 'storage', label: 'Storage', icon: HardDrive, Comp: StorageSection },
 ];
 
 function themeVars(t) {
@@ -130,9 +132,10 @@ export default function App() {
         )}
         {!UNCONFIGURED && UPLOADS_DISABLED && (
           <Banner>
-            <strong>Uploads disabled.</strong> No Swarm postage batch (<code>VITE_POSTAGE_BATCH_ID</code>). Saving a
-            shop profile or listing requires uploading JSON/images to a writeable Bee node (<code>{BEE_URL}</code>,
-            NOT a gateway) stamped with a postage batch. See CLAUDE.md §5.
+            <strong>Uploads disabled.</strong> No Swarm storage batch (<code>VITE_STORAGE_BATCH_ID</code>, falls back to
+            <code>VITE_POSTAGE_BATCH_ID</code>). Saving a shop profile or listing requires uploading JSON/images to a
+            writeable Bee node (<code>{BEE_URL}</code>, NOT a gateway) stamped with a durable batch. Create one in the
+            Storage tab. See docs/POSTAGE.md.
           </Banner>
         )}
         {!UNCONFIGURED && !isConnected && (

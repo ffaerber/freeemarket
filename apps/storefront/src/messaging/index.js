@@ -98,7 +98,7 @@ export async function sendEncryptedAddress({
   const missing = [];
   if (!pubKey) missing.push('seller ECIES public key (ContactRegistry unset or no entry)');
   if (!beeUrl) missing.push('Bee node URL (VITE_BEE_URL)');
-  if (!postageBatchId) missing.push('postage batch (VITE_POSTAGE_BATCH_ID)');
+  if (!postageBatchId) missing.push('messaging postage batch (VITE_MESSAGING_BATCH_ID / VITE_POSTAGE_BATCH_ID)');
   if (typeof signMessage !== 'function') missing.push('buyer wallet signer');
 
   if (missing.length > 0) {

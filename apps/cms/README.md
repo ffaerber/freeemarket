@@ -41,7 +41,9 @@ placed in env (it lives only in a local keystore; see §5).
 | `VITE_MARKETPLACE_ADDRESS` | for any on-chain use | — | Shared Marketplace escrow contract on Gnosis (id 100). Unset ⇒ **Unconfigured mode** (shell renders, reads/writes disabled). |
 | `VITE_RPC_URL` | no | `https://rpc.gnosischain.com` | Gnosis JSON-RPC endpoint. |
 | `VITE_BEE_URL` | for uploads | `http://localhost:1633` | Bee node base URL. Used for reads **and writes**. **Writes need a real, writeable Bee node — NOT a public gateway** (gateways reject uploads). Get one via Bee or the Freedom Browser bundle. |
-| `VITE_POSTAGE_BATCH_ID` | for uploads | — | Swarm postage batch ("stamp") that pays for storage (CLAUDE.md §5). Unset ⇒ uploads disabled + an in-UI warning. Create one with `bee.createPostageBatch(amount, depth)` (helper in `src/lib/swarmWrite.js`) or the Bee API / Swarm dashboard, then paste the batch id. Not a secret, but per-node. |
+| `VITE_STORAGE_BATCH_ID` | for uploads | falls back to `VITE_POSTAGE_BATCH_ID` | **Durable** Swarm postage batch ("stamp") stamping product image + metadata uploads, kept alive as long as the shop is live. Unset (and no fallback) ⇒ uploads disabled + an in-UI warning. Create/manage it in the **Storage** tab. Not a secret, but per-node. |
+| `VITE_MESSAGING_BATCH_ID` | for tracking send | falls back to `VITE_POSTAGE_BATCH_ID` | **Short-lived** batch stamping PSS shipment-update sends, so the ciphertext self-expires after fulfillment (CLAUDE.md §5). |
+| `VITE_POSTAGE_BATCH_ID` | legacy | — | Single-batch fallback for both of the above (back-compat). See [docs/POSTAGE.md](../../docs/POSTAGE.md). |
 | `VITE_KNOWN_TOKENS` | no | — | Optional comma-separated accepted-token addresses to seed the listing token picker. Each is still verified against the on-chain `acceptedTokens` allowlist before use. |
 | `VITE_CONTACT_REGISTRY` | for tracking send | — | SwarmChat `ContactRegistry` address — resolves the **buyer's** ECIES public key when sending a shipment-update / tracking code (seller→buyer, CLAUDE.md §5). Unset / no entry ⇒ tracking-send falls back to a stub. Reading the buyer's **address** does NOT need this — only your unlocked private key. Confirm the registry ABI/selector in `src/lib/contactRegistry.js`. |
 
@@ -79,6 +81,13 @@ placed in env (it lives only in a local keystore; see §5).
   - **Mark shipped** — **off-chain, localStorage-only** memo. There is **no
     on-chain shipped state**; the real release signal is the buyer's
     `confirmReceipt` or the timeout.
+- **Storage** — Swarm postage-batch manager (`src/lib/postage.js`). Shows the
+  **durable storage** batch and the **ephemeral messaging** batch — each with
+  depth, usage, remaining duration + a health badge — and offers **Create**,
+  **Top up** (extend TTL), and **Add capacity** (dilute depth). Batches are
+  bought/topped up from the **Bee node's BZZ wallet** (not MetaMask). Pure
+  sizing/health helpers are unit-tested (`src/lib/postage.test.mjs`); see
+  [docs/POSTAGE.md](../../docs/POSTAGE.md).
 
 ## Status (CLAUDE.md build step #6)
 

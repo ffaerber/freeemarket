@@ -27,8 +27,19 @@ export const MARKETPLACE_ADDRESS = envOr('VITE_MARKETPLACE_ADDRESS', '');
 export const RPC_URL = envOr('VITE_RPC_URL', 'https://rpc.gnosischain.com');
 /** Bee node base URL — used for reads AND writes (writes need a real node). */
 export const BEE_URL = envOr('VITE_BEE_URL', 'http://localhost:1633');
-/** Postage batch ("stamp") — required for any Swarm upload. */
+/**
+ * Postage batches ("stamps"). Swarm charges for storage up front via a batch;
+ * FreeMarket uses TWO with opposite lifetimes (see docs/POSTAGE.md):
+ *   - STORAGE_BATCH_ID  — DURABLE: stamps product image + metadata uploads, so
+ *     they stay alive as long as the shop is live (topped up over time).
+ *   - MESSAGING_BATCH_ID — EPHEMERAL: stamps PSS shipment-update sends, so the
+ *     ciphertext self-expires after fulfillment (CLAUDE.md §5).
+ * Both fall back to the legacy single `VITE_POSTAGE_BATCH_ID` when their
+ * specific var is unset, so existing single-batch setups keep working.
+ */
 export const POSTAGE_BATCH_ID = envOr('VITE_POSTAGE_BATCH_ID', '');
+export const STORAGE_BATCH_ID = envOr('VITE_STORAGE_BATCH_ID', POSTAGE_BATCH_ID);
+export const MESSAGING_BATCH_ID = envOr('VITE_MESSAGING_BATCH_ID', POSTAGE_BATCH_ID);
 
 /**
  * SwarmChat ContactRegistry address — resolves a party's published ECIES public
@@ -105,8 +116,8 @@ export const EXPLORER_URL = 'https://gnosisscan.io';
 /** True when the contract address is missing — on-chain features disabled. */
 export const UNCONFIGURED = !MARKETPLACE_ADDRESS;
 
-/** True when uploads can't run because no postage batch is configured. */
-export const UPLOADS_DISABLED = !POSTAGE_BATCH_ID;
+/** True when uploads can't run because no DURABLE storage batch is configured. */
+export const UPLOADS_DISABLED = !STORAGE_BATCH_ID;
 
 /**
  * Neutral dark admin theme. The CMS is intentionally NOT white-label themeable

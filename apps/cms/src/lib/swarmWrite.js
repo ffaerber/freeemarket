@@ -77,9 +77,10 @@ export async function uploadFile(bee, postageBatchId, file) {
 }
 
 /**
- * Optional convenience: buy a postage batch so uploads can proceed. NOT called
- * automatically — operators usually create a batch once via the Bee API /
- * Swarm dashboard and reuse its id. Documented here so the path is discoverable.
+ * Optional low-level convenience: buy a postage batch so uploads can proceed. NOT
+ * called automatically. The MANAGED path now lives in `src/lib/postage.js` (sizing
+ * presets, auto-create, top-up/dilute) surfaced by the CMS "Storage" tab; prefer
+ * that. This thin wrapper stays for ad-hoc/scripted use. See docs/POSTAGE.md.
  *
  * `amount` is the per-chunk balance (in PLUR) and `depth` sets capacity
  * (2^depth chunks); see Bee docs for sizing. Returns the new batch id to paste

@@ -31,7 +31,7 @@ import {
   GNOSIS_CHAIN_ID,
   EXPLORER_URL,
   BEE_URL,
-  POSTAGE_BATCH_ID,
+  STORAGE_BATCH_ID,
   UPLOADS_DISABLED,
   ADMIN_THEME,
 } from '../config.js';
@@ -150,7 +150,7 @@ export default function ShopSection() {
     setActionError(null);
     try {
       const bee = makeBee(BEE_URL);
-      const ref = await uploadFile(bee, POSTAGE_BATCH_ID, file);
+      const ref = await uploadFile(bee, STORAGE_BATCH_ID, file);
       set(key, ref);
     } catch (err) {
       setActionError(err);
@@ -193,7 +193,7 @@ export default function ShopSection() {
 
       // 2. Upload the profile JSON to Swarm.
       const bee = makeBee(BEE_URL);
-      const ref = await uploadJson(bee, POSTAGE_BATCH_ID, profileObj);
+      const ref = await uploadJson(bee, STORAGE_BATCH_ID, profileObj);
 
       // 3. registerShop(bytes32 metadata).
       const hash = await writeContractAsync({
@@ -228,9 +228,10 @@ export default function ShopSection() {
 
       {UPLOADS_DISABLED && (
         <Banner>
-          No Swarm postage batch configured (VITE_POSTAGE_BATCH_ID). Saving requires
-          uploading the profile JSON to Swarm, which needs a stamp — uploads are
-          disabled until one is set. See CLAUDE.md §5.
+          No Swarm storage batch configured (VITE_STORAGE_BATCH_ID, falls back to
+          VITE_POSTAGE_BATCH_ID). Saving requires uploading the profile JSON to
+          Swarm, which needs a stamp — uploads are disabled until one is set.
+          Create one in the Storage tab. See docs/POSTAGE.md.
         </Banner>
       )}
       {readError && <Banner tone="error">Couldn't read current shop: {readError.shortMessage || readError.message}</Banner>}
