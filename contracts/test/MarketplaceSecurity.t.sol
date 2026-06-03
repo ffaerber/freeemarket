@@ -154,8 +154,6 @@ contract MarketplaceSecurityTest is Test {
         FeeOnTransferToken fot = new FeeOnTransferToken();
         vm.prank(owner);
         market.setTokenAccepted(address(fot), true);
-        vm.prank(owner);
-        market.setFeeBps(250); // 2.5% platform fee, on top of the token skim
 
         vm.prank(seller);
         market.registerShop(SHOP_META);
@@ -172,24 +170,20 @@ contract MarketplaceSecurityTest is Test {
         uint256 contractBefore = fot.balanceOf(address(market));
         assertEq(contractBefore, escrowed, "escrow == received");
 
-        // Settle. Platform fee is computed on the ESCROWED (received) amount.
+        // Settle. With no platform fee the contract sends 100% of the escrowed
+        // (received) amount to the seller.
         vm.prank(buyer);
         market.confirmReceipt(orderId);
 
-        uint256 platformFee = (escrowed * 250) / 10_000;
-        uint256 payoutGross = escrowed - platformFee; // what the contract sends to seller
+        // The seller receives the full escrowed amount minus the token's own 1%
+        // skim on the OUTBOUND transfer. The KEY solvency property: the contract
+        // never tries to send more than it escrowed, and retains nothing after.
+        uint256 sellerSkim = (escrowed * fot.FEE_BPS()) / 10_000;
+        assertEq(fot.balanceOf(seller), escrowed - sellerSkim, "seller paid 100% of received (less outbound skim)");
 
-        // The seller receives payoutGross minus the token's own 1% skim on the
-        // outbound transfer. The KEY solvency property: the contract never tries
-        // to send more than it escrowed; accrued fee stays backed.
-        uint256 sellerSkim = (payoutGross * fot.FEE_BPS()) / 10_000;
-        assertEq(fot.balanceOf(seller), payoutGross - sellerSkim, "seller paid received-minus-fee (less outbound skim)");
-        assertEq(market.accruedFees(address(fot)), platformFee, "fee accrued on received amount");
-
-        // No over-draw: contract balance == accrued fee left behind (the rest
-        // either left as payout or was burned by the token on the way out).
-        assertEq(fot.balanceOf(address(market)), platformFee, "only accrued fee remains; no over-draw");
-        assertGe(fot.balanceOf(address(market)), market.accruedFees(address(fot)), "fees stay backed");
+        // No over-draw: the contract sent out exactly what it escrowed (the
+        // outbound skim was burned by the token), so its balance is now zero.
+        assertEq(fot.balanceOf(address(market)), 0, "contract retains nothing; no over-draw");
     }
 
     // =====================================================================
@@ -285,15 +279,13 @@ contract MarketplaceSecurityTest is Test {
         uint256 orderDispute = _fundUsdc(id);
 
         vm.prank(owner);
-        market.setFeeBps(100); // so fees accrue and withdrawFees has something to move
-
-        vm.prank(owner);
         market.pause();
 
-        // confirmReceipt works while paused.
+        // confirmReceipt works while paused; seller is paid 100%.
         vm.prank(buyer);
         market.confirmReceipt(orderConfirm);
         assertEq(uint8(_state(orderConfirm)), uint8(Marketplace.OrderState.Completed));
+        assertEq(usdc.balanceOf(seller), PRICE, "seller paid full amount while paused");
 
         // claimAfterTimeout works while paused.
         vm.warp(block.timestamp + 14 days);
@@ -312,13 +304,9 @@ contract MarketplaceSecurityTest is Test {
         vm.prank(seller);
         market.updateListing(id, PRICE, 0, ITEM_META, false);
 
-        // withdrawFees works while paused.
-        uint256 fee = market.accruedFees(address(usdc));
-        assertGt(fee, 0);
-        vm.prank(owner);
-        market.withdrawFees(address(usdc), owner);
-        assertEq(market.accruedFees(address(usdc)), 0);
-        assertEq(usdc.balanceOf(owner), fee);
+        // The contract holds no leftover funds: every settled/refunded order
+        // moved 100% of its escrow out (no platform fee is ever retained).
+        assertEq(usdc.balanceOf(address(market)), 0, "no funds trapped or skimmed");
     }
 
     function test_unpause_restoresIntake() public {

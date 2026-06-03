@@ -22,14 +22,11 @@ contract MarketplaceFuzzTest is Test {
         market = new Marketplace(tokens, owner);
     }
 
-    /// Payout + fee must always exactly equal the escrowed amount, and the fee
-    /// must never exceed the configured rate, for any price/fee combination.
-    function testFuzz_feeConservation(uint256 price, uint16 feeBps) public {
+    /// The seller's payout must always exactly equal the escrowed amount (no
+    /// platform fee is ever taken), and the contract must retain nothing, for
+    /// any price.
+    function testFuzz_fullPayoutNoFee(uint256 price) public {
         price = bound(price, 1, 1e18); // up to 1e12 USDC; well within uint256 math
-        feeBps = uint16(bound(feeBps, 0, market.MAX_FEE_BPS()));
-
-        vm.prank(owner);
-        market.setFeeBps(feeBps);
 
         vm.prank(seller);
         market.registerShop(META);
@@ -45,12 +42,10 @@ contract MarketplaceFuzzTest is Test {
         vm.prank(buyer);
         market.confirmReceipt(orderId);
 
-        uint256 fee = market.accruedFees(address(usdc));
         uint256 payout = usdc.balanceOf(seller);
 
-        assertEq(payout + fee, price, "payout + fee must equal escrow");
-        assertLe(fee, (price * feeBps) / 10_000 + 1, "fee within rate");
-        assertEq(usdc.balanceOf(address(market)), fee, "only fees remain");
+        assertEq(payout, price, "seller payout must equal escrow (100%)");
+        assertEq(usdc.balanceOf(address(market)), 0, "contract retains nothing");
     }
 
     /// The seller can never claim before exactly `autoReleasePeriod` elapses,

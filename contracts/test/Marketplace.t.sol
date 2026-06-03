@@ -46,12 +46,10 @@ contract MarketplaceTest is Test {
         address token,
         uint256 amount
     );
-    event OrderCompleted(uint256 indexed orderId, uint256 payout, uint256 fee);
+    event OrderCompleted(uint256 indexed orderId, uint256 payout);
     event OrderRefunded(uint256 indexed orderId, uint256 amount);
     event DisputeOpened(uint256 indexed orderId, address indexed by);
-    event FeeUpdated(uint16 feeBps);
     event AutoReleasePeriodUpdated(uint256 period);
-    event FeesWithdrawn(address indexed token, address indexed to, uint256 amount);
 
     function setUp() public virtual {
         usdc = new MockUSDC();
@@ -392,7 +390,7 @@ contract MarketplaceTest is Test {
         uint256 orderId = _fund(id);
 
         vm.expectEmit(true, false, false, true);
-        emit OrderCompleted(orderId, PRICE, 0);
+        emit OrderCompleted(orderId, PRICE);
         vm.prank(buyer);
         market.confirmReceipt(orderId);
 
@@ -544,61 +542,7 @@ contract MarketplaceTest is Test {
         market.confirmReceipt(orderId);
     }
 
-    // --- fee math ---
-
-    function test_fee_splitsPayoutAndAccrues() public {
-        vm.prank(owner);
-        market.setFeeBps(250); // 2.5%
-
-        uint256 id = _listing(PRICE);
-        uint256 orderId = _fund(id);
-        uint256 expectedFee = (PRICE * 250) / 10_000; // 250_000
-        uint256 expectedPayout = PRICE - expectedFee;
-
-        vm.expectEmit(true, false, false, true);
-        emit OrderCompleted(orderId, expectedPayout, expectedFee);
-        vm.prank(buyer);
-        market.confirmReceipt(orderId);
-
-        assertEq(usdc.balanceOf(seller), expectedPayout);
-        assertEq(market.accruedFees(address(usdc)), expectedFee);
-        assertEq(usdc.balanceOf(address(market)), expectedFee);
-    }
-
-    function test_fee_roundsDownToZeroOnTinyAmount() public {
-        vm.prank(owner);
-        market.setFeeBps(1); // 0.01%
-
-        // price * 1 / 10000 < 1  => fee rounds to 0
-        uint256 id = _listing(9_999);
-        vm.startPrank(buyer);
-        usdc.approve(address(market), 9_999);
-        uint256 orderId = market.buy(id);
-        vm.stopPrank();
-
-        vm.prank(buyer);
-        market.confirmReceipt(orderId);
-        assertEq(market.accruedFees(address(usdc)), 0);
-        assertEq(usdc.balanceOf(seller), 9_999);
-    }
-
     // --- admin ---
-
-    function test_setFeeBps_capEnforced() public {
-        vm.prank(owner);
-        vm.expectRevert(bytes("fee too high"));
-        market.setFeeBps(1001); // > 10%
-
-        vm.prank(owner);
-        market.setFeeBps(1000); // exactly 10% ok
-        assertEq(market.feeBps(), 1000);
-    }
-
-    function test_setFeeBps_onlyOwner() public {
-        vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger));
-        market.setFeeBps(100);
-    }
 
     function test_setAutoReleasePeriod_rangeEnforced() public {
         vm.startPrank(owner);
@@ -611,44 +555,17 @@ contract MarketplaceTest is Test {
         assertEq(market.autoReleasePeriod(), 30 days);
     }
 
-    function test_withdrawFees_transfersAndZeroes() public {
-        vm.prank(owner);
-        market.setFeeBps(1000);
-        uint256 id = _listing(PRICE);
-        uint256 orderId = _fund(id);
-        vm.prank(buyer);
-        market.confirmReceipt(orderId);
-
-        uint256 fee = market.accruedFees(address(usdc));
-        assertGt(fee, 0);
-
-        vm.expectEmit(true, true, false, true);
-        emit FeesWithdrawn(address(usdc), owner, fee);
-        vm.prank(owner);
-        market.withdrawFees(address(usdc), owner);
-
-        assertEq(market.accruedFees(address(usdc)), 0);
-        assertEq(usdc.balanceOf(owner), fee);
-    }
-
-    function test_withdrawFees_rejectsZeroAddress() public {
-        vm.prank(owner);
-        vm.expectRevert(bytes("to=0"));
-        market.withdrawFees(address(usdc), address(0));
-    }
-
     // --- multi-token behaviour ---
 
-    /// A listing priced in a second (18-decimal) token can be bought, settled,
-    /// and have its fees withdrawn fully independently of the USDC accounting.
+    /// A listing priced in a second (18-decimal) token can be bought and
+    /// settled, paying the seller 100% in that token, independently of the
+    /// USDC accounting.
     function test_multiToken_secondTokenLifecycle() public {
         MockToken dai = new MockToken("Mock DAI", "DAI", 18);
         uint256 daiPrice = 5 * 1e18;
 
         vm.prank(owner);
         market.setTokenAccepted(address(dai), true);
-        vm.prank(owner);
-        market.setFeeBps(1000); // 10%
 
         _registerShop();
         vm.prank(seller);
@@ -668,24 +585,18 @@ contract MarketplaceTest is Test {
         vm.prank(buyer);
         market.confirmReceipt(orderId);
 
-        uint256 expectedFee = (daiPrice * 1000) / 10_000;
-        assertEq(dai.balanceOf(seller), daiPrice - expectedFee);
-        assertEq(market.accruedFees(address(dai)), expectedFee);
-        assertEq(market.accruedFees(address(usdc)), 0); // USDC untouched
-
-        vm.prank(owner);
-        market.withdrawFees(address(dai), owner);
-        assertEq(dai.balanceOf(owner), expectedFee);
-        assertEq(market.accruedFees(address(dai)), 0);
+        assertEq(dai.balanceOf(seller), daiPrice, "seller gets 100% in DAI");
+        assertEq(dai.balanceOf(address(market)), 0, "contract keeps no DAI");
+        assertEq(usdc.balanceOf(address(market)), 0); // USDC untouched
     }
 
-    /// Fees accrue and withdraw independently per token.
-    function test_multiToken_feesIndependentPerToken() public {
+    /// Settlement is fully independent per token: paying out one token's order
+    /// leaves another token's escrow untouched, and the contract retains
+    /// nothing in either.
+    function test_multiToken_settlesIndependentlyPerToken() public {
         MockToken dai = new MockToken("Mock DAI", "DAI", 18);
         vm.prank(owner);
         market.setTokenAccepted(address(dai), true);
-        vm.prank(owner);
-        market.setFeeBps(1000); // 10%
 
         _registerShop();
 
@@ -693,10 +604,8 @@ contract MarketplaceTest is Test {
         vm.prank(seller);
         uint256 usdcListing = market.createListing(address(usdc), PRICE, STOCK, ITEM_META);
         uint256 usdcOrder = _fund(usdcListing);
-        vm.prank(buyer);
-        market.confirmReceipt(usdcOrder);
 
-        // DAI order
+        // DAI order (funded but not yet settled)
         uint256 daiPrice = 3 * 1e18;
         vm.prank(seller);
         uint256 daiListing = market.createListing(address(dai), daiPrice, STOCK, ITEM_META);
@@ -705,25 +614,19 @@ contract MarketplaceTest is Test {
         dai.approve(address(market), daiPrice);
         uint256 daiOrder = market.buy(daiListing);
         vm.stopPrank();
+
+        // Settle the USDC order: seller gets 100% USDC; DAI escrow untouched.
+        vm.prank(buyer);
+        market.confirmReceipt(usdcOrder);
+        assertEq(usdc.balanceOf(seller), PRICE);
+        assertEq(usdc.balanceOf(address(market)), 0);
+        assertEq(dai.balanceOf(address(market)), daiPrice, "DAI escrow still held");
+
+        // Settle the DAI order: seller gets 100% DAI; contract now empty.
         vm.prank(buyer);
         market.confirmReceipt(daiOrder);
-
-        uint256 usdcFee = (PRICE * 1000) / 10_000;
-        uint256 daiFee = (daiPrice * 1000) / 10_000;
-        assertEq(market.accruedFees(address(usdc)), usdcFee);
-        assertEq(market.accruedFees(address(dai)), daiFee);
-
-        // Withdrawing one token does not affect the other.
-        vm.prank(owner);
-        market.withdrawFees(address(usdc), owner);
-        assertEq(market.accruedFees(address(usdc)), 0);
-        assertEq(market.accruedFees(address(dai)), daiFee);
-        assertEq(usdc.balanceOf(owner), usdcFee);
-
-        vm.prank(owner);
-        market.withdrawFees(address(dai), owner);
-        assertEq(market.accruedFees(address(dai)), 0);
-        assertEq(dai.balanceOf(owner), daiFee);
+        assertEq(dai.balanceOf(seller), daiPrice);
+        assertEq(dai.balanceOf(address(market)), 0);
     }
 
     /// Removing a token from the allowlist after an order is funded must NOT

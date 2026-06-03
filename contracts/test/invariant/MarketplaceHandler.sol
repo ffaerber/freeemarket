@@ -99,17 +99,6 @@ contract MarketplaceHandler is Test {
         market.resolveDispute(orderId, refundBuyer);
     }
 
-    function withdraw() external {
-        vm.prank(owner);
-        market.withdrawFees(address(usdc), owner);
-    }
-
-    function setFee(uint256 feeSeed) external {
-        uint16 fee = uint16(feeSeed % (market.MAX_FEE_BPS() + 1));
-        vm.prank(owner);
-        market.setFeeBps(fee);
-    }
-
     /// Sum of escrow still held for open (Funded or Disputed) orders.
     function openEscrow() external view returns (uint256 total) {
         for (uint256 i = 0; i < orderIds.length; i++) {

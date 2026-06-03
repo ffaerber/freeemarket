@@ -65,8 +65,6 @@ contract DeployTest is Test {
         assertTrue(market.acceptedTokens(GNOSIS_WXDAI));
         assertTrue(market.acceptedTokens(GNOSIS_USDC));
         assertFalse(market.acceptedTokens(makeAddr("random")));
-        // Fee starts at 0; the owner sets it post-deploy via setFeeBps.
-        assertEq(market.feeBps(), 0);
     }
 
     function test_deploy_seedsExactlyTheGivenTokens() public {
