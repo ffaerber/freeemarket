@@ -6,6 +6,11 @@ escrow. Built on Gnosis Chain + Ethereum Swarm.
 
 See [`CLAUDE.md`](./CLAUDE.md) for the full project spec, architecture, and build order.
 
+**Forking to add VAT / fees / business compliance?** The mainline is deliberately
+fee-free and VAT-free (a small peer-to-peer market for fruit, potatoes & the
+like). See [`docs/FORKING.md`](./docs/FORKING.md) for the simplest way to add
+those in your own fork.
+
 ## Repo structure
 
 ```

@@ -23,18 +23,14 @@ contract MarketplaceInvariantTest is Test {
     }
 
     /// Escrow solvency: the contract's USDC balance must always equal the funds
-    /// still held for open orders plus the fees accrued-but-not-withdrawn.
-    /// Nothing is ever lost or paid out twice.
+    /// still held for open orders. With no platform fee, the contract never
+    /// retains anything beyond open escrow — settled orders pay out 100% to the
+    /// seller, so nothing is ever lost or paid out twice.
     function invariant_escrowSolvency() public view {
         assertEq(
             usdc.balanceOf(address(market)),
-            handler.openEscrow() + market.accruedFees(address(usdc)),
-            "contract balance must back open escrow + accrued fees"
+            handler.openEscrow(),
+            "contract balance must exactly back open escrow"
         );
-    }
-
-    /// The contract must always hold at least the fees it claims to have accrued.
-    function invariant_feesAreBacked() public view {
-        assertGe(usdc.balanceOf(address(market)), market.accruedFees(address(usdc)));
     }
 }

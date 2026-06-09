@@ -32,14 +32,14 @@ forge test
 ## Tests
 
 - `test/Marketplace.t.sol` — unit + revert coverage: shops, listings, buy/escrow,
-  confirm, timeout, disputes, fee math, admin, reentrancy guard.
+  confirm, timeout, disputes, full-payout/no-fee, admin, reentrancy guard.
 - `test/MarketplaceSecurity.t.sol` — pre-audit hardening regressions (no-renounce
   + Ownable2Step, fee-on-transfer-safe escrow, allowlist re-check on buy, pausable
   intake). See **Security hardening** below.
-- `test/MarketplaceFuzz.t.sol` — fuzz: fee conservation (`payout + fee == amount`)
-  and the timeout boundary.
+- `test/MarketplaceFuzz.t.sol` — fuzz: full payout / no fee (`payout == amount`,
+  contract retains nothing) and the timeout boundary.
 - `test/invariant/` — handler-driven escrow-solvency invariant: the contract's
-  USDC balance always equals open escrow + accrued fees.
+  USDC balance always equals open escrow exactly (no fee is ever retained).
 - `test/mocks/` — `MockUSDC` (6-dp), `MockToken` (configurable decimals),
   `ReentrantToken` (reentrancy probe), and `FeeOnTransferToken` (1%-skimming token).
 
@@ -73,9 +73,11 @@ all optional:
 | Env | Meaning | Default |
 |---|---|---|
 | `TOKENS` | comma-separated ERC-20 addresses to seed the allowlist | Gnosis WXDAI + bridged USDC |
-| `OWNER` | arbiter/owner (disputes, fees, allowlist) | the broadcasting address |
+| `OWNER` | arbiter/owner (disputes, allowlist) | the broadcasting address |
 
-The platform fee starts at 0; the owner sets it post-deploy via `setFeeBps`.
+There is **no platform fee**: every order settles 100% from buyer to seller. The
+contract has no fee rate, no fee accounting, and no owner withdrawal path, so the
+operator earns nothing from facilitating trades.
 
 ```sh
 # Dry run (no broadcast) — prints the resolved plan + a simulated address

@@ -64,7 +64,7 @@ The layers interoperate through a **shared Swarm JSON schema** (see §6). That s
 
 ## 4. Smart Contract — `Marketplace.sol`
 
-Solidity ^0.8.20, OpenZeppelin v5 (`SafeERC20`, `ReentrancyGuard`, `Ownable`). Compiles clean. **Multi-token:** the owner curates an `acceptedTokens` allowlist; each listing picks one accepted ERC-20 and is priced in that token's smallest unit (decimals vary — USDC's 6 dp means 10 USDC = `10_000_000`; an 18-dp token uses `10 * 1e18`). The order snapshots its token at `buy` time, so settlement is unaffected if the allowlist later changes. Fees accrue per token.
+Solidity ^0.8.20, OpenZeppelin v5 (`SafeERC20`, `ReentrancyGuard`, `Ownable`). Compiles clean. **Multi-token:** the owner curates an `acceptedTokens` allowlist; each listing picks one accepted ERC-20 and is priced in that token's smallest unit (decimals vary — USDC's 6 dp means 10 USDC = `10_000_000`; an 18-dp token uses `10 * 1e18`). The order snapshots its token at `buy` time, so settlement is unaffected if the allowlist later changes. **No platform fee:** every order settles 100% from buyer to seller — the contract has no fee rate, no fee accounting, and no owner withdrawal path, so the operator earns nothing from facilitating trades (see "No platform fee" below).
 
 **On-chain inventory:** each `Listing` carries a `uint256 stock` — the remaining unit COUNT (not a token amount; never run through `parseUnits`). `buy()` requires `stock > 0` then decrements it by one, so the contract prevents overselling and buyers see true remaining quantity. Sellers set the initial stock at creation (must be > 0) and may adjust it on update (0 = sold out / paused). `active` stays an independent on/off switch.
 
@@ -84,9 +84,10 @@ The `Listing` struct is `{ address seller; address token; uint256 price; uint256
 | `claimAfterTimeout(orderId)` | seller | Releases escrow after `autoReleasePeriod` (default 14d) if buyer is silent. |
 | `openDispute(orderId)` | buyer or seller | Moves order to `Disputed`. |
 | `resolveDispute(orderId, refundBuyer)` | owner (arbiter) | Refund buyer or pay seller. |
-| `setFeeBps`, `setAutoReleasePeriod`, `withdrawFees(token, to)` | owner | Admin. Fee capped at 10%; fees are withdrawn per token. |
+| `setAutoReleasePeriod(period)` | owner | Admin. Adjust the auto-release window (1–90 days). |
+| `pause()` / `unpause()` | owner | Circuit breaker on intake only (see hardening #4). |
 
-**Events:** `ShopRegistered`, `TokenAccepted(token, accepted)`, `ListingCreated(id, seller, token, price, stock, metadata)`, `ListingUpdated(id, price, stock, metadata, active)`, `StockChanged(id, newStock)` (emitted from `buy` after decrement and from `updateListing`, so storefronts/indexers track remaining inventory cheaply), `OrderFunded(orderId, listingId, buyer, seller, token, amount)`, `OrderCompleted`, `OrderRefunded`, `DisputeOpened`, `FeesWithdrawn(token, to, amount)`, plus admin events.
+**Events:** `ShopRegistered`, `TokenAccepted(token, accepted)`, `ListingCreated(id, seller, token, price, stock, metadata)`, `ListingUpdated(id, price, stock, metadata, active)`, `StockChanged(id, newStock)` (emitted from `buy` after decrement and from `updateListing`, so storefronts/indexers track remaining inventory cheaply), `OrderFunded(orderId, listingId, buyer, seller, token, amount)`, `OrderCompleted(orderId, payout)` (`payout` == full escrowed amount; no fee field), `OrderRefunded`, `DisputeOpened`, plus admin events. (There is **no** `FeeUpdated`/`FeesWithdrawn` event — the fee surface was removed.)
 
 > **Decided (was open):** identity/keys are delegated to SwarmChat's `ContactRegistry` (§5). The `encryptionPubKey` field and the `shippingRef` argument have been removed, leaving the contract as **pure escrow + listings**. Encrypted addresses travel off-chain over PSS, stamped with a short-lived Swarm postage batch so the ciphertext self-expires after fulfillment.
 
@@ -94,7 +95,9 @@ The `Listing` struct is `{ address seller; address token; uint256 price; uint256
 1. **Permanent arbiter.** Switched `Ownable` → **`Ownable2Step`** (ownership transfer is a 2-step accept, so the arbiter role can't be fat-fingered to a wrong/zero address) and `renounceOwnership()` is **overridden to revert** (`"renounce disabled: arbiter required"`) — the sole dispute arbiter can never be removed, so Disputed escrow can never lock forever.
 2. **Fee-on-transfer-safe escrow.** `buy` records `order.amount` as the **actually-received amount** (a `balanceOf` delta around the `safeTransferFrom`), not the listed price, and requires `received > 0`. A skimming/deflationary token can therefore never over-draw other orders' escrow. `amount` is the only field written *after* the transfer (safe under `nonReentrant`); state + stock effects stay pre-transfer (CEI).
 3. **Allowlist re-check on `buy`.** `buy` re-checks `acceptedTokens[token]`, so de-listing a compromised token blocks **new** funding immediately. Already-funded orders settle on their snapshotted token and don't re-check, so existing escrow always settles.
-4. **Pausable circuit breaker on intake only.** Owner-gated `pause()`/`unpause()` apply `whenNotPaused` to **`buy` and `createListing` only**. Settlement/exit paths (`confirmReceipt`, `claimAfterTimeout`, `openDispute`, `resolveDispute`, `withdrawFees`) and `updateListing` are **never** pausable — pausing halts new money/listings but can never trap escrowed funds.
+4. **Pausable circuit breaker on intake only.** Owner-gated `pause()`/`unpause()` apply `whenNotPaused` to **`buy` and `createListing` only**. Settlement/exit paths (`confirmReceipt`, `claimAfterTimeout`, `openDispute`, `resolveDispute`) and `updateListing` are **never** pausable — pausing halts new money/listings but can never trap escrowed funds.
+
+**No platform fee (zero operator revenue).** The contract takes **zero** cut: `_release` transfers 100% of the escrowed amount to the seller (and `resolveDispute` refunds 100% to the buyer). There is deliberately **no** `feeBps`/`MAX_FEE_BPS`, **no** `accruedFees` accounting, **no** `setFeeBps`, and **no** `withdrawFees` — the operator/arbiter has no path to skim or withdraw funds and never custodies revenue. This keeps the operator a pure non-profiting facilitator (the only money path the owner retains is `resolveDispute`, which can only route escrow to the buyer or the seller, never to the owner). Note this is an intentional product/legal choice, **not** a security mitigation; it is independent of the four hardening items above. (The "fee-on-transfer-safe escrow" item #2 concerns *deflationary ERC-20 tokens that skim on transfer* — a different "fee" — and is unaffected.)
 
 ---
 
@@ -244,7 +247,7 @@ security notes) in [`docs/DEPLOY.md`](docs/DEPLOY.md).
 ## 9. Build Order / TODO
 
 1. ~~**Schema** (`packages/schema`) — TS types + JSON Schema.~~ ✅ Done.
-2. ~~**Contract tests** — Foundry suite (happy paths, escrow release, timeout, dispute, fees, fuzz, invariants).~~ ✅ Done (69 tests, incl. multi-token + deploy script + pre-audit security hardening — see §4).
+2. ~~**Contract tests** — Foundry suite (happy paths, escrow release, timeout, dispute, full-payout/no-fee, fuzz, invariants).~~ ✅ Done (62 tests, incl. multi-token + deploy script + pre-audit security hardening — see §4).
 3. ~~**Decide identity model** — delegate keys/comms to `ContactRegistry` + PSS, then strip `encryptionPubKey`/`shippingRef` from `Marketplace`.~~ ✅ Done — delegated to SwarmChat; contract is now pure escrow + listings.
 4. ~~**Confirm token** — Gnosis USDC address or commit to xDAI; set in deploy script.~~ ✅ Done — replaced the single hardcoded token with an owner-curated `acceptedTokens` allowlist + per-listing token choice (multi-token escrow). The deploy script (`contracts/script/Deploy.s.sol`) seeds the allowlist — defaulting to Gnosis WXDAI + bridged USDC, overridable via the `TOKENS` env — and the owner can add/remove tokens later via `setTokenAccepted`. No single token is hardcoded.
 5. **Storefront (real)** — port template, wire contract + Swarm + PSS.

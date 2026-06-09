@@ -60,8 +60,15 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
  *      4. CIRCUIT BREAKER (Pausable). The owner can `pause()` to halt INTAKE
  *         only — `buy` and `createListing`. Settlement and exit paths
  *         (confirmReceipt, claimAfterTimeout, openDispute, resolveDispute,
- *         withdrawFees, updateListing) are NEVER pausable, so pausing can stop
- *         new money/listings but can NEVER trap escrowed funds.
+ *         updateListing) are NEVER pausable, so pausing can stop new
+ *         money/listings but can NEVER trap escrowed funds.
+ *
+ * @dev NO PLATFORM FEE. This contract takes ZERO cut: every order settles
+ *      100% of the escrowed amount from buyer to seller (or refunds 100% to
+ *      the buyer on dispute). There is deliberately no fee rate, no fee
+ *      accounting, and no owner withdrawal path — the operator earns nothing
+ *      from facilitating trades and never custodies a skim. (Removed to keep
+ *      the operator a non-profiting facilitator; see CLAUDE.md §4.)
  */
 contract Marketplace is ReentrancyGuard, Ownable2Step, Pausable {
     using SafeERC20 for IERC20;
@@ -69,12 +76,7 @@ contract Marketplace is ReentrancyGuard, Ownable2Step, Pausable {
     /// @notice Owner-curated allowlist of ERC-20s a listing may be priced in.
     mapping(address => bool) public acceptedTokens;
 
-    uint16 public feeBps;                          // platform fee, basis points (100 = 1%)
-    uint16 public constant MAX_FEE_BPS = 1000;     // hard cap: 10%
     uint256 public autoReleasePeriod = 14 days;    // buyer silence -> seller may claim
-
-    /// @notice Fees accrued per token (each token settles independently).
-    mapping(address => uint256) public accruedFees;
 
     enum OrderState { None, Funded, Completed, Disputed, Refunded }
 
@@ -130,12 +132,10 @@ contract Marketplace is ReentrancyGuard, Ownable2Step, Pausable {
         address token,
         uint256 amount
     );
-    event OrderCompleted(uint256 indexed orderId, uint256 payout, uint256 fee);
+    event OrderCompleted(uint256 indexed orderId, uint256 payout);
     event OrderRefunded(uint256 indexed orderId, uint256 amount);
     event DisputeOpened(uint256 indexed orderId, address indexed by);
-    event FeeUpdated(uint16 feeBps);
     event AutoReleasePeriodUpdated(uint256 period);
-    event FeesWithdrawn(address indexed token, address indexed to, uint256 amount);
 
     /// @param initialTokens ERC-20s to seed the accepted-token allowlist with.
     /// @param _owner        arbiter/owner. (Ownable2Step extends Ownable, so the
@@ -306,11 +306,10 @@ contract Marketplace is ReentrancyGuard, Ownable2Step, Pausable {
 
     function _release(uint256 orderId, Order storage o) internal {
         o.state = OrderState.Completed;
-        uint256 fee = (o.amount * feeBps) / 10_000;
-        uint256 payout = o.amount - fee;
-        accruedFees[o.token] += fee;
+        // No platform fee: the seller receives 100% of the escrowed amount.
+        uint256 payout = o.amount;
         IERC20(o.token).safeTransfer(o.seller, payout);
-        emit OrderCompleted(orderId, payout, fee);
+        emit OrderCompleted(orderId, payout);
     }
 
     // --- Disputes ---
@@ -336,16 +335,14 @@ contract Marketplace is ReentrancyGuard, Ownable2Step, Pausable {
         }
     }
 
-    // --- Admin ---
-
     // --- Admin: circuit breaker (HARDENING 4: Pausable on INTAKE only) ---
 
     /// @notice Pause INTAKE: `buy` and `createListing` revert while paused.
     /// @dev INVARIANT: pausing halts new money + new listings ONLY. Settlement
     ///      and exit paths (confirmReceipt, claimAfterTimeout, openDispute,
-    ///      resolveDispute, withdrawFees) and updateListing are NEVER pausable —
-    ///      so the owner can never trap escrowed funds by pausing. Pause stops
-    ///      intake, never withdrawals.
+    ///      resolveDispute) and updateListing are NEVER pausable — so the owner
+    ///      can never trap escrowed funds by pausing. Pause stops intake, never
+    ///      settlement.
     function pause() external onlyOwner {
         _pause();
     }
@@ -355,24 +352,9 @@ contract Marketplace is ReentrancyGuard, Ownable2Step, Pausable {
         _unpause();
     }
 
-    function setFeeBps(uint16 _feeBps) external onlyOwner {
-        require(_feeBps <= MAX_FEE_BPS, "fee too high");
-        feeBps = _feeBps;
-        emit FeeUpdated(_feeBps);
-    }
-
     function setAutoReleasePeriod(uint256 period) external onlyOwner {
         require(period >= 1 days && period <= 90 days, "out of range");
         autoReleasePeriod = period;
         emit AutoReleasePeriodUpdated(period);
-    }
-
-    /// @notice Withdraw fees accrued in a specific token.
-    function withdrawFees(address token, address to) external onlyOwner nonReentrant {
-        require(to != address(0), "to=0");
-        uint256 amt = accruedFees[token];
-        accruedFees[token] = 0;
-        IERC20(token).safeTransfer(to, amt);
-        emit FeesWithdrawn(token, to, amt);
     }
 }

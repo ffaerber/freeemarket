@@ -68,7 +68,6 @@ export const marketplaceAbi = [
     inputs: [
       { name: 'orderId', type: 'uint256', indexed: true },
       { name: 'payout', type: 'uint256', indexed: false },
-      { name: 'fee', type: 'uint256', indexed: false },
     ],
   },
   {
@@ -220,13 +219,6 @@ export const marketplaceAbi = [
     stateMutability: 'view',
     inputs: [{ name: '', type: 'address' }],
     outputs: [{ name: '', type: 'bool' }],
-  },
-  {
-    type: 'function',
-    name: 'accruedFees',
-    stateMutability: 'view',
-    inputs: [{ name: '', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
   },
   {
     type: 'function',

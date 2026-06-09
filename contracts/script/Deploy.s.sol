@@ -19,11 +19,12 @@ import {Marketplace} from "../src/Marketplace.sol";
  *
  *  - `TOKENS` — comma-separated ERC-20 addresses to seed the allowlist with.
  *               Defaults to Gnosis WXDAI + bridged USDC (see constants).
- *  - `OWNER`  — the arbiter/owner (dispute resolver, fee withdrawer, allowlist
- *               curator). Defaults to the broadcasting address.
+ *  - `OWNER`  — the arbiter/owner (dispute resolver, allowlist curator).
+ *               Defaults to the broadcasting address.
  *
- *  The platform fee starts at 0; the owner sets it post-deploy via `setFeeBps`
- *  (it is owner-gated, so the deployer can't set it for a separate arbiter).
+ *  There is NO platform fee: every order settles 100% from buyer to seller, and
+ *  the contract has no fee rate, no fee accounting, and no owner withdrawal path
+ *  (the operator earns nothing from facilitating trades — see CLAUDE.md §4).
  *
  *  ## Usage
  *
