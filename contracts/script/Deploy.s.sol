@@ -20,7 +20,9 @@ import {Marketplace} from "../src/Marketplace.sol";
  *  - `TOKENS` — comma-separated ERC-20 addresses to seed the allowlist with.
  *               Defaults to Gnosis WXDAI + bridged USDC (see constants).
  *  - `OWNER`  — the arbiter/owner (dispute resolver, allowlist curator).
- *               Defaults to the broadcasting address.
+ *               REQUIRED: the script reverts if unset. Must be the intended
+ *               arbiter — it can never be renounced after deploy (see
+ *               `resolveOwner`), so there is deliberately no implicit default.
  *
  *  There is NO platform fee: every order settles 100% from buyer to seller, and
  *  the contract has no fee rate, no fee accounting, and no owner withdrawal path
@@ -28,15 +30,19 @@ import {Marketplace} from "../src/Marketplace.sol";
  *
  *  ## Usage
  *
+ *  `OWNER` is REQUIRED on every invocation (incl. dry runs) — set it to the
+ *  intended arbiter (commonly the broadcasting EOA).
+ *
  *  Dry run (no broadcast):
- *      forge script script/Deploy.s.sol:Deploy
+ *      OWNER=0xYourArbiter forge script script/Deploy.s.sol:Deploy
  *
  *  Deploy to Gnosis Chain (id 100):
+ *      OWNER=0xYourArbiter \
  *      forge script script/Deploy.s.sol:Deploy \
  *        --rpc-url https://rpc.gnosischain.com \
  *        --private-key $PRIVATE_KEY --broadcast
  *
- *  With explicit config:
+ *  With explicit token allowlist:
  *      TOKENS=0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d \
  *      OWNER=0xYourArbiter \
  *      forge script script/Deploy.s.sol:Deploy --rpc-url ... --broadcast
@@ -67,12 +73,20 @@ contract Deploy is Script {
         console2.log("Marketplace deployed at:", address(market));
     }
 
-    /// @notice Owner = `OWNER` env if set (and non-empty), else the broadcasting address.
+    /// @notice Owner/arbiter = the `OWNER` env address. REQUIRED — reverts if unset.
+    ///
+    ///         Why not default to `msg.sender`? In a `forge script`, code outside
+    ///         `vm.startBroadcast()` runs as forge's DEFAULT_SENDER
+    ///         (0x1804c8AB…1f38), NOT the broadcasting key — so a `msg.sender`
+    ///         default silently bakes an address nobody controls into the owner
+    ///         slot. That is catastrophic here: the arbiter can NEVER be renounced
+    ///         (and ownership transfer must be initiated by the current owner), so
+    ///         a wrong owner permanently bricks dispute resolution. Forcing an
+    ///         explicit `OWNER` makes that mistake impossible. Set it to the
+    ///         intended arbiter (commonly the broadcasting EOA).
     function resolveOwner() public view returns (address) {
-        if (_isSet("OWNER")) {
-            return vm.envAddress("OWNER");
-        }
-        return msg.sender;
+        require(_isSet("OWNER"), "OWNER env required (intended arbiter; cannot be renounced after deploy)");
+        return vm.envAddress("OWNER");
     }
 
     /// @notice Tokens = `TOKENS` env (comma-separated) if set (and non-empty),
