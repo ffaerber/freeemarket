@@ -5,6 +5,15 @@
  */
 export const handleRegistryAbi = [
   {
+    type: 'event',
+    name: 'HandleClaimed',
+    inputs: [
+      { name: 'handleHash', type: 'bytes32', indexed: true },
+      { name: 'handle', type: 'string', indexed: false },
+      { name: 'seller', type: 'address', indexed: true },
+    ],
+  },
+  {
     type: 'function',
     name: 'resolve',
     stateMutability: 'view',

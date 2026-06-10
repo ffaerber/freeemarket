@@ -63,17 +63,6 @@ function handleError(h) {
   return '';
 }
 
-/** A storefront theme the merchant edits — defaults to a bright sample. */
-const DEFAULT_THEME = {
-  bg: '#FFF7EE', surface: '#FFFFFF', text: '#2B1A12', muted: '#9A7C68',
-  accent: '#FF4D6D', accent2: '#FFA51E', border: '#F1E3D3', radius: '22px',
-  display: "'Fraunces', Georgia, serif", body: "'DM Sans', sans-serif",
-};
-
-const THEME_KEYS = [
-  'bg', 'surface', 'text', 'muted', 'accent', 'accent2', 'border', 'radius', 'display', 'body',
-];
-
 /** Region presets offered as checkboxes (resolved via @freemarket/schema). */
 const REGION_OPTIONS = ['EU', 'EEA', 'US', 'NA'];
 
@@ -94,7 +83,6 @@ export default function ShopSection() {
   const [form, setForm] = useState({
     name: '', ens: '', tagline: '', blurb: '', logo: '', banner: '',
   });
-  const [theme, setTheme] = useState(DEFAULT_THEME);
   // Shipping policy form (ShopProfile.shipping). `countries` is a comma/space
   // separated string in the form; it's parsed to an uppercase ISO code array on
   // build. ADVISORY only — the contract never sees a country (CLAUDE.md §5).
@@ -115,7 +103,6 @@ export default function ShopSection() {
         logo: profile.logo || '',
         banner: profile.banner || '',
       });
-      if (profile.theme) setTheme({ ...DEFAULT_THEME, ...profile.theme });
       // Prefill the shipping policy (absent ⇒ worldwide, backward compatible).
       const sp = profile.shipping;
       if (sp) {
@@ -133,9 +120,6 @@ export default function ShopSection() {
 
   function set(key, value) {
     setForm((f) => ({ ...f, [key]: value }));
-  }
-  function setThemeKey(key, value) {
-    setTheme((t) => ({ ...t, [key]: value }));
   }
   function setShip(key, value) {
     setShipping((s) => ({ ...s, [key]: value }));
@@ -173,9 +157,9 @@ export default function ShopSection() {
     }
   }
 
-  /** Assemble the ShopProfile object from form + theme state. */
+  /** Assemble the ShopProfile object from the form state (theme is static now). */
   function buildProfile() {
-    const p = { version: 1, name: form.name.trim(), theme };
+    const p = { version: 1, name: form.name.trim() };
     if (form.ens.trim()) p.ens = form.ens.trim();
     if (form.tagline.trim()) p.tagline = form.tagline.trim();
     if (form.blurb.trim()) p.blurb = form.blurb.trim();
@@ -238,7 +222,7 @@ export default function ShopSection() {
     <div>
       <SectionHeader
         title="Shop profile"
-        subtitle="Your white-label storefront identity. Saved as a ShopProfile JSON on Swarm and registered on-chain via registerShop(bytes32). The connected wallet IS your shop."
+        subtitle="Your shop identity. Saved as a ShopProfile JSON on Swarm and registered on-chain via registerShop(bytes32). The connected wallet IS your shop. The storefront uses a fixed default theme."
         right={registered ? <Pill tone="accent2">Registered</Pill> : <Pill>Not registered</Pill>}
       />
 
@@ -251,7 +235,7 @@ export default function ShopSection() {
       )}
       {readError && <Banner tone="error">Couldn't read current shop: {readError.shortMessage || readError.message}</Banner>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr)', gap: 20, alignItems: 'start' }}>
+      <div>
         <Card>
           <Field label="Shop name">
             <Input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Sunny Field" />
@@ -292,21 +276,6 @@ export default function ShopSection() {
           )}
           <ErrorNote error={actionError} />
           {isLoading && <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 10 }}>Loading current shop…</div>}
-        </Card>
-
-        <Card>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Storefront theme tokens</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.5 }}>
-            White-label tokens the storefront renders with (CLAUDE.md §6). All ten are required by the schema.
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {THEME_KEYS.map((k) => (
-              <label key={k} style={{ fontSize: 12 }}>
-                <span style={{ color: 'var(--muted)', display: 'block', marginBottom: 4 }}>{k}</span>
-                <Input value={theme[k]} onChange={(e) => setThemeKey(k, e.target.value)} style={{ padding: '8px 10px', fontSize: 12.5 }} />
-              </label>
-            ))}
-          </div>
         </Card>
       </div>
 

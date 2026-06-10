@@ -19,7 +19,6 @@ import {
   SHOP_METADATA,
   BEE_URL,
   GNOSIS_CHAIN_ID,
-  FALLBACK_THEME,
 } from '../config.js';
 
 export function useShop(seller) {
@@ -57,7 +56,7 @@ export function useShop(seller) {
     name: profile?.name || 'Untitled Shop',
     tagline: profile?.tagline || 'Pays in stablecoins · escrow on Gnosis',
     blurb: profile?.blurb || '',
-    theme: profile?.theme || FALLBACK_THEME,
+    // Theme is STATIC now (config.STOREFRONT_THEME); profile.theme is ignored.
     logo: profile?.logo || '',
     banner: profile?.banner || '',
     // ADVISORY shipping-region policy (off-chain; CLAUDE.md §5). Absent ⇒

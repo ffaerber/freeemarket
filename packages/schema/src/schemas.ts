@@ -68,7 +68,7 @@ export const shopProfileSchema: SchemaObject = {
   $id: 'https://freemarket.eth/schema/shop-profile.json',
   type: 'object',
   additionalProperties: false,
-  required: ['version', 'name', 'theme'],
+  required: ['version', 'name'],
   properties: {
     version: { const: 1 },
     name: { type: 'string', minLength: 1 },
@@ -77,6 +77,8 @@ export const shopProfileSchema: SchemaObject = {
     blurb: { type: 'string' },
     logo: { type: 'string' },
     banner: { type: 'string' },
+    // Optional: the storefront renders a single STATIC theme and ignores this,
+    // but profiles that still carry a full theme remain valid.
     theme: { $ref: 'https://freemarket.eth/schema/shop-theme.json' },
     // Optional advisory shipping-region policy (off-chain; CLAUDE.md §5).
     shipping: { $ref: 'https://freemarket.eth/schema/shipping-policy.json' },

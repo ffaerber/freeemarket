@@ -60,64 +60,24 @@ export const GNOSIS_CHAIN_ID = 100;
 /** Block explorer base for tx links. */
 export const EXPLORER_URL = 'https://gnosisscan.io';
 
-/**
- * DEMO fallback: with no contract configured at all, the app can only ever show
- * the sample shop. The per-request demo-vs-real decision is now RUNTIME (see
- * useActiveSeller + Storefront.jsx): a configured contract + a resolvable
- * path/seller renders the real shop; the root path with nothing to show renders
- * the demo. This constant only flags "no chain configured at build time".
- */
+/** CMS / admin URL — the portal's "Create your shop" CTA points here. */
+export const ADMIN_URL = envOr('VITE_ADMIN_URL', 'https://admin.freeemarket.eth.limo');
+
+/** Public host this storefront is served at — used to show shop URLs in the portal. */
+export const STOREFRONT_HOST = envOr('VITE_STOREFRONT_HOST', 'freeemarket.eth.limo');
+
+/** True when no Marketplace is configured at build time (chain reads disabled). */
 export const NO_CHAIN_CONFIGURED = !MARKETPLACE_ADDRESS;
 
 /**
- * Ported sample shop — used ONLY in DEMO MODE. This is the same white-label
- * config shape the real path builds from `ShopProfile` + on-chain listings, so
- * the UI component stays identical across demo and real.
- *
- * In the real path: `theme`/`name`/`tagline`/`blurb`/`ens` come from the Swarm
- * `ShopProfile`, and `listings` come from on-chain `ListingCreated` logs +
- * Swarm `ListingMetadata`. Prices below are display-only demo numbers; the real
- * path formats from on-chain smallest-unit amounts via the token's decimals.
+ * The single STATIC storefront theme. Custom per-shop theming is dropped for now
+ * (the storefront is a fixed default UI); every shop renders with this theme. A
+ * `ShopProfile.theme`, if present, is intentionally ignored. A future custom
+ * storefront could re-introduce per-shop theming. Tokens map 1:1 to the CSS vars
+ * the UI consumes (see <Styles> + StorefrontView).
  */
-export const DEMO_SHOP = {
-  seller: '0xF00Dcafe00000000000000000000000000000a17e',
-  ens: 'sunnyfield.eth',
-  name: 'Sunny Field',
-  tagline: 'Freeze-dried fruit, nothing else added.',
-  blurb: 'Single-origin fruit, freeze-dried at harvest. Crunchy, bright, real.',
-  theme: {
-    bg: '#FFF7EE', surface: '#FFFFFF', text: '#2B1A12', muted: '#9A7C68',
-    accent: '#FF4D6D', accent2: '#FFA51E', border: '#F1E3D3', radius: '22px',
-    display: "'Fraunces', Georgia, serif", body: "'DM Sans', sans-serif",
-  },
-  hero: 'radial-gradient(120% 120% at 80% 0%, #FFE6CC 0%, #FFF7EE 55%)',
-  // Sample ADVISORY shipping-region policy (off-chain; CLAUDE.md §5): ships to
-  // the EU + the US only. The storefront renders a "Ships to: EU & US" badge and
-  // gates checkout by the buyer's selected country. NOT on-chain-enforced.
-  shipping: { mode: 'allowlist', regions: ['EU'], countries: ['US'], note: 'Ships within 3 days' },
-  // `stock` mirrors the on-chain unit count (a COUNT, never a token amount).
-  // `productId` + `variantLabel` are OFF-CHAIN grouping metadata: listings that
-  // share a productId render as ONE product card with a variant selector. Here
-  // the two Strawberries (one sold out) and the two Bananas each collapse into a
-  // single card; Mango / Mixed Berries have no productId ⇒ standalone cards.
-  // `price` (bigint smallest-unit) mirrors the real normalized shape so
-  // groupListings can sort variants by price; demo decimals are 6 (USDC-like).
-  listings: [
-    { id: 1, productId: 'strawberries', variantLabel: '10 g pouch', title: 'Strawberries', variant: '10 g pouch', price: 3500000n, priceFormatted: '3.50', symbol: 'USDC', glyph: '🍓', description: 'One ingredient. Whole slices.', images: [], stock: 0 },
-    // `pricing` is a DISPLAY-ONLY split of the on-chain price (which already
-    // includes shipping); item + shipping reconcile to priceFormatted. FLAT per
-    // variant — not per-region (the contract can't see the destination, §5).
-    { id: 2, productId: 'strawberries', variantLabel: '100 g jar', title: 'Strawberries', variant: '100 g jar', price: 14000000n, priceFormatted: '14.00', pricing: { item: '12.00', shipping: '2.00' }, symbol: 'USDC', glyph: '🍓', description: 'Family jar, resealable.', images: [], stock: 8 },
-    { id: 3, productId: 'bananas', variantLabel: '10 g pouch', title: 'Bananas', variant: '10 g pouch', price: 3000000n, priceFormatted: '3.00', symbol: 'USDC', glyph: '🍌', description: 'Coins, no sugar coating.', images: [], stock: 120 },
-    { id: 4, productId: 'bananas', variantLabel: '100 g jar', title: 'Bananas', variant: '100 g jar', price: 12000000n, priceFormatted: '12.00', pricing: { item: '10.00', shipping: '2.00' }, symbol: 'USDC', glyph: '🍌', description: 'Snack-all-week size.', images: [], stock: 3 },
-    { id: 5, title: 'Mango', variant: '100 g jar', variantLabel: '100 g jar', price: 16000000n, priceFormatted: '16.00', symbol: 'USDC', glyph: '🥭', description: 'Alphonso, intense.', images: [], stock: 0 },
-    { id: 6, title: 'Mixed Berries', variant: '100 g jar', variantLabel: '100 g jar', price: 18000000n, priceFormatted: '18.00', symbol: 'USDC', glyph: '🫐', description: 'Strawberry · blueberry · rasp.', images: [], stock: 25 },
-  ],
-};
-
-/** A neutral fallback theme used if a real shop has no readable profile yet. */
-export const FALLBACK_THEME = {
-  bg: '#0D1014', surface: '#15191F', text: '#E8EEF4', muted: '#7E8893',
-  accent: '#FF6A00', accent2: '#FFD400', border: '#242C36', radius: '10px',
-  display: "'Bebas Neue', Impact, sans-serif", body: "'DM Sans', sans-serif",
+export const STOREFRONT_THEME = {
+  bg: '#F7F8FA', surface: '#FFFFFF', text: '#16181D', muted: '#6B7280',
+  accent: '#4F46E5', accent2: '#10B981', border: '#E6E8EC', radius: '14px',
+  display: "'DM Sans', system-ui, sans-serif", body: "'DM Sans', system-ui, sans-serif",
 };
