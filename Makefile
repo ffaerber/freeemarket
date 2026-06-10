@@ -1,7 +1,7 @@
 # FreeMarket — monorepo build / test / deploy
 # Adapt per-shop deploy from SwarmChat's `make deploy-frontend` (see CLAUDE.md §8).
 
-.PHONY: help build test contracts-build contracts-test deploy-contract storefront cms deploy-frontend deploy-frontend-build
+.PHONY: help build test contracts-build contracts-test deploy-contract storefront cms deploy-frontend deploy-frontend-build deploy-cms deploy-cms-build
 
 help:
 	@echo "FreeMarket targets:"
@@ -14,6 +14,8 @@ help:
 	@echo "  make cms              - dev server for apps/cms"
 	@echo "  make deploy-frontend       - upload prebuilt storefront dist to Swarm + print/set ENS contenthash (print-only by default)"
 	@echo "  make deploy-frontend-build - same, but build the storefront first (BUILD=1)"
+	@echo "  make deploy-cms            - upload prebuilt CMS admin SPA to Swarm (own feed topic; print-only by default)"
+	@echo "  make deploy-cms-build      - same, but build the CMS first (BUILD=1)"
 
 build: contracts-build
 	@echo "TODO: build packages/* and apps/*"
@@ -62,3 +64,22 @@ deploy-frontend:
 #     POSTAGE_BATCH_ID=.. FEED_PRIVATE_KEY=.. ENS_NAME=shop.eth
 deploy-frontend-build:
 	cd scripts && BUILD=1 node deploy-frontend.mjs
+
+# Deploy the CMS / admin SPA to Swarm via the SAME pipeline as the storefront
+# (it's just another static Vite build). The CMS is the SHARED back-office for
+# all shops (not per-shop), so it gets its OWN stable feed/ENS address via a
+# distinct FEED_TOPIC. SECURITY: the CMS handles the merchant's ECIES decryption
+# key + plaintext addresses (CLAUDE.md §5) — load the Swarm-hosted CMS from a
+# Bee node YOU run (or pin the content hash), NOT an untrusted public gateway.
+#
+# Uses a prebuilt DIST_DIR by default (run `npm run build` in apps/cms first);
+# pass BUILD=1 to build here. Print-only by default — a live ENS set needs
+# ENS_RPC_URL + ENS_PRIVATE_KEY + CONFIRM_MAINNET=1, same as the storefront.
+#   make deploy-cms POSTAGE_BATCH_ID=.. FEED_PRIVATE_KEY=.. [ENS_NAME=admin.eth]
+deploy-cms:
+	cd scripts && STOREFRONT_DIR=../apps/cms DIST_DIR=$(if $(DIST_DIR),$(DIST_DIR),../apps/cms/dist) \
+	  FEED_TOPIC=$(if $(FEED_TOPIC),$(FEED_TOPIC),freemarket-cms) node deploy-frontend.mjs
+
+deploy-cms-build:
+	cd scripts && BUILD=1 STOREFRONT_DIR=../apps/cms \
+	  FEED_TOPIC=$(if $(FEED_TOPIC),$(FEED_TOPIC),freemarket-cms) node deploy-frontend.mjs
