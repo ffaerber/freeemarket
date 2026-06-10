@@ -20,7 +20,21 @@ function envOr(key, fallback) {
 }
 
 export const MARKETPLACE_ADDRESS = envOr('VITE_MARKETPLACE_ADDRESS', '');
+
+/**
+ * Optional single-shop seller. In MULTI-TENANT mode (the default for the shared
+ * freeemarket.eth deploy) the active shop is resolved from the URL path via the
+ * on-chain HandleRegistry (see useActiveSeller), and this is left unset. Setting
+ * it pins the deploy to ONE shop (a per-shop ENS deploy) regardless of path.
+ */
 export const SELLER = envOr('VITE_SELLER', '');
+
+/**
+ * Ownerless on-chain HandleRegistry (handle → seller) on Gnosis. Enables the
+ * multi-tenant path resolution `freeemarket.eth.limo/<handle>`. When unset, only
+ * the VITE_SELLER fallback / raw-address path works.
+ */
+export const HANDLE_REGISTRY = envOr('VITE_HANDLE_REGISTRY', '');
 export const RPC_URL = envOr('VITE_RPC_URL', 'https://rpc.gnosischain.com');
 export const BEE_URL = envOr('VITE_BEE_URL', 'https://api.gateway.ethswarm.org');
 export const SHOP_METADATA = envOr('VITE_SHOP_METADATA', '');
@@ -47,10 +61,13 @@ export const GNOSIS_CHAIN_ID = 100;
 export const EXPLORER_URL = 'https://gnosisscan.io';
 
 /**
- * The app is in DEMO MODE only when BOTH the contract address and seller are
- * unset. With either set we attempt the real path (and surface real errors).
+ * DEMO fallback: with no contract configured at all, the app can only ever show
+ * the sample shop. The per-request demo-vs-real decision is now RUNTIME (see
+ * useActiveSeller + Storefront.jsx): a configured contract + a resolvable
+ * path/seller renders the real shop; the root path with nothing to show renders
+ * the demo. This constant only flags "no chain configured at build time".
  */
-export const DEMO_MODE = !MARKETPLACE_ADDRESS || !SELLER;
+export const NO_CHAIN_CONFIGURED = !MARKETPLACE_ADDRESS;
 
 /**
  * Ported sample shop — used ONLY in DEMO MODE. This is the same white-label

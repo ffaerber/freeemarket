@@ -11,9 +11,11 @@
  *   - Checkout:        real approve + buy escrow on Gnosis, then the PSS
  *                      messaging boundary (stubbed; CLAUDE.md §5)
  *
- * DEMO MODE (config.DEMO_MODE): when no contract/seller env is set, we render a
- * ported sample shop so the build/preview shows something. The real on-chain
- * path is the default the moment env is configured.
+ * MULTI-TENANT: the active shop is resolved at runtime from the URL path via
+ * useActiveSeller (freeemarket.eth.limo/<handle> → HandleRegistry → seller), with
+ * a VITE_SELLER fallback for single-shop deploys. When no contract is configured
+ * at all (or at the bare root with nothing to show), we render a ported sample
+ * shop so the build/preview shows something.
  */
 import React, { useState } from 'react';
 import { Store, ShoppingBag, Truck } from 'lucide-react';
@@ -22,8 +24,9 @@ import { Styles, Pill } from './ui.jsx';
 import Checkout from './checkout/Checkout.jsx';
 import { useShop } from './hooks/useShop.js';
 import { useListings, groupListings } from './hooks/useListings.js';
+import { useActiveSeller } from './hooks/useActiveSeller.js';
 import { swarmImageUrl } from './lib/swarm.js';
-import { DEMO_MODE, DEMO_SHOP, BEE_URL } from './config.js';
+import { NO_CHAIN_CONFIGURED, DEMO_SHOP, BEE_URL } from './config.js';
 
 /** Pick a graceful emoji glyph fallback when a listing has no Swarm image. */
 function glyphFor(listing) {
@@ -390,18 +393,50 @@ function DemoStorefront() {
   return <StorefrontView shop={shop} groups={groupListings(listings)} isLoading={false} error={null} hero={DEMO_SHOP.hero} demo />;
 }
 
-/** REAL path: read shop + listings from chain/Swarm (grouped by productId). */
-function RealStorefront() {
-  const { shop } = useShop();
-  const { groups, isLoading, error } = useListings();
+/** REAL path: read shop + listings for a resolved seller from chain/Swarm. */
+function RealStorefront({ seller }) {
+  const { shop } = useShop(seller);
+  const { groups, isLoading, error } = useListings(seller);
   return <StorefrontView shop={shop} groups={groups} isLoading={isLoading} error={error} />;
 }
 
+/** Centered full-page message (resolving / shop-not-found states). */
+function CenterNote({ title, detail }) {
+  return (
+    <div style={{ minHeight: '60vh', display: 'grid', placeItems: 'center', textAlign: 'center', padding: 24 }}>
+      <div>
+        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>{title}</div>
+        {detail && <div style={{ color: '#7E8893', fontSize: 14, maxWidth: 420 }}>{detail}</div>}
+      </div>
+    </div>
+  );
+}
+
 export default function Storefront() {
+  // Resolve which shop to render from the URL path (multi-tenant) or fallbacks.
+  const { seller, handle, status } = useActiveSeller();
+
+  let body;
+  if (NO_CHAIN_CONFIGURED || status === 'landing') {
+    // Nothing configured to read — show the ported sample shop.
+    body = <DemoStorefront />;
+  } else if (status === 'resolving') {
+    body = <CenterNote title="Loading shop…" detail={handle ? `Resolving “${handle}”` : ''} />;
+  } else if (status === 'notfound') {
+    body = (
+      <CenterNote
+        title="Shop not found"
+        detail={handle ? `No shop is registered for “${handle}”.` : 'No shop handle in the URL.'}
+      />
+    );
+  } else {
+    body = <RealStorefront seller={seller} />;
+  }
+
   return (
     <div style={{ minHeight: '100vh' }}>
       <Styles />
-      {DEMO_MODE ? <DemoStorefront /> : <RealStorefront />}
+      {body}
     </div>
   );
 }

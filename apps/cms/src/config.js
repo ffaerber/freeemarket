@@ -24,6 +24,15 @@ function envOr(key, fallback) {
 }
 
 export const MARKETPLACE_ADDRESS = envOr('VITE_MARKETPLACE_ADDRESS', '');
+
+/**
+ * Ownerless on-chain HandleRegistry (handle → seller) on Gnosis. Lets a merchant
+ * claim a storefront handle so the shared multi-tenant storefront resolves
+ * freeemarket.eth.limo/<handle> → their address. When unset, the handle-claim
+ * card is shown disabled with a "not configured" note.
+ */
+export const HANDLE_REGISTRY_ADDRESS = envOr('VITE_HANDLE_REGISTRY', '');
+
 export const RPC_URL = envOr('VITE_RPC_URL', 'https://rpc.gnosischain.com');
 /** Bee node base URL — used for reads AND writes (writes need a real node). */
 export const BEE_URL = envOr('VITE_BEE_URL', 'http://localhost:1633');

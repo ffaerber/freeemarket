@@ -13,8 +13,8 @@
  * uploads here (we upload it and store the resulting ref).
  */
 import React, { useEffect, useState } from 'react';
-import { Store, UploadCloud, Check, Truck } from 'lucide-react';
-import { useWriteContract, usePublicClient } from 'wagmi';
+import { Store, UploadCloud, Check, Truck, Link as LinkIcon } from 'lucide-react';
+import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
 import {
   assertShopProfile,
   SchemaValidationError,
@@ -23,11 +23,14 @@ import {
   describeShippingPolicy,
 } from '@freemarket/schema';
 import { marketplaceAbi } from '../abi/marketplace.js';
+import { handleRegistryAbi } from '../abi/handleRegistry.js';
 import { useShopProfile } from '../hooks/useShopProfile.js';
+import { useMyHandle } from '../hooks/useMyHandle.js';
 import { makeBee, uploadJson, uploadFile } from '../lib/swarmWrite.js';
 import { refToBytes32, swarmImageUrl } from '../lib/swarm.js';
 import {
   MARKETPLACE_ADDRESS,
+  HANDLE_REGISTRY_ADDRESS,
   GNOSIS_CHAIN_ID,
   EXPLORER_URL,
   BEE_URL,
@@ -41,11 +44,24 @@ import {
   Input,
   Textarea,
   Button,
+  GhostButton,
   SectionHeader,
   Banner,
   ErrorNote,
   Pill,
 } from '../ui.jsx';
+
+/** Public host the multi-tenant storefront is served at (for the handle URL preview). */
+const STOREFRONT_HOST = 'freeemarket.eth.limo';
+
+/** Client-side mirror of HandleRegistry._validate (3–32 [a-z0-9-], no edge hyphen). */
+function handleError(h) {
+  if (!h) return '';
+  if (h.length < 3 || h.length > 32) return 'Must be 3–32 characters.';
+  if (h[0] === '-' || h[h.length - 1] === '-') return 'No leading or trailing hyphen.';
+  if (!/^[a-z0-9-]+$/.test(h)) return 'Only lowercase a–z, 0–9 and hyphen.';
+  return '';
+}
 
 /** A storefront theme the merchant edits — defaults to a bright sample. */
 const DEFAULT_THEME = {
@@ -294,6 +310,9 @@ export default function ShopSection() {
         </Card>
       </div>
 
+      {/* Storefront handle — claim a multi-tenant URL on the shared storefront. */}
+      <HandleClaim />
+
       {/* Shipping-region policy (ADVISORY, off-chain — CLAUDE.md §5). */}
       <Card style={{ marginTop: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -363,6 +382,120 @@ export default function ShopSection() {
         </Field>
       </Card>
     </div>
+  );
+}
+
+/**
+ * HandleClaim — claim / change / release the merchant's storefront handle on the
+ * ownerless HandleRegistry, so the shared multi-tenant storefront resolves
+ * freeemarket.eth.limo/<handle> → this wallet. The connected wallet IS the seller.
+ */
+function HandleClaim() {
+  const { address, isConnected } = useAccount();
+  const publicClient = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
+  const { writeContractAsync } = useWriteContract();
+  const { handle: currentHandle, refetch } = useMyHandle();
+
+  const [input, setInput] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [txHash, setTxHash] = useState(null);
+  const [actionError, setActionError] = useState(null);
+
+  // Prefill the input with the current handle once it loads.
+  useEffect(() => {
+    if (currentHandle) setInput(currentHandle);
+  }, [currentHandle]);
+
+  const notConfigured = !HANDLE_REGISTRY_ADDRESS;
+  const validationMsg = handleError(input);
+  const unchanged = input === currentHandle;
+  const canClaim =
+    isConnected && !notConfigured && !busy && Boolean(input) && !validationMsg && !unchanged;
+
+  async function run(functionName, args) {
+    setBusy(true);
+    setActionError(null);
+    setTxHash(null);
+    try {
+      const hash = await writeContractAsync({
+        abi: handleRegistryAbi,
+        address: HANDLE_REGISTRY_ADDRESS,
+        functionName,
+        args,
+        chainId: GNOSIS_CHAIN_ID,
+      });
+      setTxHash(hash);
+      await publicClient.waitForTransactionReceipt({ hash });
+      await refetch?.();
+    } catch (err) {
+      setActionError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card style={{ marginTop: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <LinkIcon size={16} style={{ color: 'var(--accent2)' }} />
+        <div style={{ fontSize: 13, fontWeight: 600 }}>Storefront handle</div>
+        {currentHandle
+          ? <Pill tone="accent2">{currentHandle}</Pill>
+          : <Pill>None claimed</Pill>}
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.5, maxWidth: '70ch' }}>
+        Claim a handle on the on-chain <strong>HandleRegistry</strong> so the shared multi-tenant
+        storefront resolves your shop by URL. One handle per wallet; claiming a new one frees the
+        old. Lowercase a–z, 0–9 and hyphen, 3–32 chars.
+      </div>
+
+      {notConfigured ? (
+        <Banner>
+          Handle registry not configured (VITE_HANDLE_REGISTRY). Set it to the deployed
+          HandleRegistry address to enable handle claims.
+        </Banner>
+      ) : (
+        <>
+          <Field
+            label="Handle"
+            hint={
+              input && !validationMsg
+                ? `Your shop will be at ${STOREFRONT_HOST}/${input}`
+                : 'e.g. autoparts24'
+            }
+          >
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value.toLowerCase())}
+              placeholder="autoparts24"
+            />
+          </Field>
+          {validationMsg && (
+            <div style={{ color: '#ff6b6b', fontSize: 12.5, marginTop: -6, marginBottom: 8 }}>{validationMsg}</div>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
+            <Button onClick={() => run('claim', [input])} disabled={!canClaim}>
+              <LinkIcon size={16} /> {busy ? 'Submitting…' : currentHandle ? 'Change handle' : 'Claim handle'}
+            </Button>
+            {currentHandle && (
+              <GhostButton onClick={() => run('release', [])} disabled={busy}>
+                Release
+              </GhostButton>
+            )}
+            {!isConnected && (
+              <span style={{ color: 'var(--muted)', fontSize: 13 }}>Connect a wallet to claim.</span>
+            )}
+          </div>
+          {txHash && (
+            <a href={`${EXPLORER_URL}/tx/${txHash}`} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 10, fontFamily: 'ui-monospace, monospace', fontSize: 11.5, color: 'var(--accent)' }}>
+              View tx: {txHash.slice(0, 10)}…
+            </a>
+          )}
+          <ErrorNote error={actionError} />
+        </>
+      )}
+    </Card>
   );
 }
 
