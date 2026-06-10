@@ -34,9 +34,10 @@ contract DeployTest is Test {
         assertEq(tokens[0], GNOSIS_WXDAI, "default token[0] = WXDAI");
         assertEq(tokens[1], GNOSIS_USDC, "default token[1] = USDC");
 
-        address caller = makeAddr("deployerEOA");
-        vm.prank(caller);
-        assertEq(deployer.resolveOwner(), caller, "default owner = caller");
+        // OWNER is REQUIRED: unset must revert (never silently default to a
+        // forge-default-sender address — that would brick the un-renounceable arbiter).
+        vm.expectRevert(bytes("OWNER env required (intended arbiter; cannot be renounced after deploy)"));
+        deployer.resolveOwner();
 
         // TOKENS override (comma-separated)
         vm.setEnv("TOKENS", "0x1111111111111111111111111111111111111111,0x2222222222222222222222222222222222222222");
