@@ -16,24 +16,22 @@ import { marketplaceAbi } from '../abi/marketplace.js';
 import { fetchShopProfile } from '../lib/swarm.js';
 import {
   MARKETPLACE_ADDRESS,
-  SELLER,
   SHOP_METADATA,
   BEE_URL,
   GNOSIS_CHAIN_ID,
-  FALLBACK_THEME,
 } from '../config.js';
 
-export function useShop() {
+export function useShop(seller) {
   // 1. On-chain: shops(seller) -> (registered, metadata). Skipped if we have a
   //    metadata override or are missing config.
   const enabledOnChain =
-    !SHOP_METADATA && Boolean(MARKETPLACE_ADDRESS) && Boolean(SELLER);
+    !SHOP_METADATA && Boolean(MARKETPLACE_ADDRESS) && Boolean(seller);
 
   const shopRead = useReadContract({
     abi: marketplaceAbi,
     address: MARKETPLACE_ADDRESS || undefined,
     functionName: 'shops',
-    args: SELLER ? [SELLER] : undefined,
+    args: seller ? [seller] : undefined,
     chainId: GNOSIS_CHAIN_ID,
     query: { enabled: enabledOnChain },
   });
@@ -53,12 +51,12 @@ export function useShop() {
   const profile = profileQuery.data || null;
 
   const shop = {
-    seller: SELLER,
-    ens: profile?.ens || (SELLER ? `${SELLER.slice(0, 6)}…${SELLER.slice(-4)}` : ''),
+    seller: seller || '',
+    ens: profile?.ens || (seller ? `${seller.slice(0, 6)}…${seller.slice(-4)}` : ''),
     name: profile?.name || 'Untitled Shop',
     tagline: profile?.tagline || 'Pays in stablecoins · escrow on Gnosis',
     blurb: profile?.blurb || '',
-    theme: profile?.theme || FALLBACK_THEME,
+    // Theme is STATIC now (config.STOREFRONT_THEME); profile.theme is ignored.
     logo: profile?.logo || '',
     banner: profile?.banner || '',
     // ADVISORY shipping-region policy (off-chain; CLAUDE.md §5). Absent ⇒

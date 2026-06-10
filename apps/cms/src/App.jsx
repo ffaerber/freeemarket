@@ -24,6 +24,9 @@ import { Styles, Button, GhostButton, Banner, Pill } from './ui.jsx';
 import ShopSection from './sections/ShopSection.jsx';
 import ListingsSection from './sections/ListingsSection.jsx';
 import OrdersSection from './sections/OrdersSection.jsx';
+import Onboarding from './sections/Onboarding.jsx';
+import { useShopProfile } from './hooks/useShopProfile.js';
+import { useMyHandle } from './hooks/useMyHandle.js';
 import {
   ADMIN_THEME,
   UNCONFIGURED,
@@ -82,6 +85,16 @@ export default function App() {
   const [tab, setTab] = useState('shop');
   const Active = TABS.find((t) => t.id === tab)?.Comp;
 
+  // Onboarding gate: a connected, configured wallet with no shop OR no handle yet
+  // gets the first-run wizard instead of the tabs. Wait for both reads to settle
+  // so existing merchants don't see a flash of onboarding.
+  const { registered, isLoading: shopLoading } = useShopProfile();
+  const { handle, isLoading: handleLoading } = useMyHandle();
+  const ready = isConnected && !UNCONFIGURED;
+  const gateLoading = ready && (shopLoading || handleLoading);
+  const needsOnboarding = ready && !gateLoading && (!registered || !handle);
+  const showTabs = ready && !gateLoading && !needsOnboarding;
+
   return (
     <div className="fm" style={{ ...themeVars(ADMIN_THEME), background: 'var(--bg)', color: 'var(--text)', minHeight: '100vh', fontFamily: 'var(--body)' }}>
       <Styles />
@@ -96,7 +109,8 @@ export default function App() {
           </div>
           <WalletControls />
         </div>
-        {/* Tabs */}
+        {/* Tabs — hidden during first-run onboarding */}
+        {showTabs && (
         <div style={{ maxWidth: 1080, margin: '0 auto', padding: '0 22px', display: 'flex', gap: 4 }}>
           {TABS.map(({ id, label, icon: Icon }) => {
             const active = id === tab;
@@ -118,6 +132,7 @@ export default function App() {
             );
           })}
         </div>
+        )}
       </header>
 
       <main style={{ maxWidth: 1080, margin: '0 auto', padding: '26px 22px 80px' }}>
@@ -141,9 +156,15 @@ export default function App() {
           </Banner>
         )}
 
-        {/* Contract is configured but actions still need a connected wallet; the
-            sections render read-only / empty states gracefully until then. */}
-        {Active && <Active />}
+        {/* First-run wizard → onboarding; otherwise the active tab. Sections
+            render read-only/empty states gracefully until a wallet connects. */}
+        {gateLoading ? (
+          <div style={{ color: 'var(--muted)', fontSize: 14, padding: '8px 0' }}>Checking your shop…</div>
+        ) : needsOnboarding ? (
+          <Onboarding onDone={() => setTab('listings')} />
+        ) : (
+          Active && <Active />
+        )}
 
         <footer style={{ marginTop: 48, paddingTop: 18, borderTop: '1px solid var(--border)', color: 'var(--muted)', fontSize: 12, lineHeight: 1.6 }}>
           Marketplace: <code>{MARKETPLACE_ADDRESS || '— unset —'}</code> · Bee: <code>{BEE_URL}</code>

@@ -1,7 +1,7 @@
 # FreeMarket — monorepo build / test / deploy
 # Adapt per-shop deploy from SwarmChat's `make deploy-frontend` (see CLAUDE.md §8).
 
-.PHONY: help build test contracts-build contracts-test deploy-contract storefront cms deploy-frontend deploy-frontend-build deploy-cms deploy-cms-build
+.PHONY: help build test contracts-build contracts-test deploy-contract deploy-handle-registry storefront cms deploy-frontend deploy-frontend-build deploy-cms deploy-cms-build
 
 help:
 	@echo "FreeMarket targets:"
@@ -10,6 +10,7 @@ help:
 	@echo "  make contracts-build  - forge build (contracts/)"
 	@echo "  make contracts-test   - forge test (contracts/)"
 	@echo "  make deploy-contract  - deploy Marketplace (set RPC_URL; dry-run if unset)"
+	@echo "  make deploy-handle-registry - deploy ownerless HandleRegistry (set RPC_URL; dry-run if unset)"
 	@echo "  make storefront       - dev server for apps/storefront"
 	@echo "  make cms              - dev server for apps/cms"
 	@echo "  make deploy-frontend       - upload prebuilt storefront dist to Swarm + print/set ENS contenthash (print-only by default)"
@@ -35,6 +36,13 @@ contracts-test:
 # to broadcast; with neither it's a local dry-run. See contracts/README.md.
 deploy-contract:
 	cd contracts && forge script script/Deploy.s.sol:Deploy \
+	  $(if $(RPC_URL),--rpc-url $(RPC_URL) --broadcast,)
+
+# Deploy the ownerless HandleRegistry (handle -> seller alias for the
+# multi-tenant storefront). No config: no owner, no tokens, holds no funds.
+# Set RPC_URL + PRIVATE_KEY to broadcast; with neither it's a local dry-run.
+deploy-handle-registry:
+	cd contracts && forge script script/DeployHandleRegistry.s.sol:DeployHandleRegistry \
 	  $(if $(RPC_URL),--rpc-url $(RPC_URL) --broadcast,)
 
 storefront:

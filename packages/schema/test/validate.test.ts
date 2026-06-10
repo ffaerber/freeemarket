@@ -58,6 +58,11 @@ test('isShopProfile rejects missing name', () => {
   assert.equal(isShopProfile(rest), false);
 });
 
+test('isShopProfile accepts a profile WITHOUT a theme (storefront is static)', () => {
+  const { theme, ...themeless } = validShop;
+  assert.equal(isShopProfile(themeless), true);
+});
+
 test('isShopProfile rejects wrong version', () => {
   assert.equal(isShopProfile({ ...validShop, version: 2 }), false);
 });

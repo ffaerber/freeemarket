@@ -24,7 +24,6 @@ import { erc20Abi } from '../abi/erc20.js';
 import { fetchListingMetadata } from '../lib/swarm.js';
 import {
   MARKETPLACE_ADDRESS,
-  SELLER,
   BEE_URL,
   GNOSIS_CHAIN_ID,
 } from '../config.js';
@@ -58,10 +57,10 @@ async function readToken(client, token, hint) {
   return { decimals: resolvedDecimals, symbol: resolvedSymbol };
 }
 
-async function loadListings(client) {
-  if (!client || !MARKETPLACE_ADDRESS || !SELLER) return [];
+async function loadListings(client, sellerAddress) {
+  if (!client || !MARKETPLACE_ADDRESS || !sellerAddress) return [];
 
-  const seller = getAddress(SELLER);
+  const seller = getAddress(sellerAddress);
 
   // 1. ListingCreated logs for this seller (indexed → efficient filter).
   const logs = await client.getContractEvents({
@@ -192,13 +191,13 @@ export function groupListings(listings) {
   });
 }
 
-export function useListings() {
+export function useListings(seller) {
   const client = useClient({ chainId: GNOSIS_CHAIN_ID });
 
   const query = useQuery({
-    queryKey: ['listings', MARKETPLACE_ADDRESS, SELLER, BEE_URL],
-    enabled: Boolean(client && MARKETPLACE_ADDRESS && SELLER),
-    queryFn: () => loadListings(client),
+    queryKey: ['listings', MARKETPLACE_ADDRESS, seller, BEE_URL],
+    enabled: Boolean(client && MARKETPLACE_ADDRESS && seller),
+    queryFn: () => loadListings(client, seller),
     staleTime: 60 * 1000,
   });
 

@@ -68,7 +68,12 @@ export interface ShopProfile {
   blurb?: string;
   logo?: string; // Swarm ref
   banner?: string; // Swarm ref
-  theme: ShopTheme;
+  /**
+   * Optional white-label theme tokens. The current storefront renders a single
+   * STATIC theme and ignores this, but the field is kept (optional) so existing
+   * profiles validate and a custom-storefront path can use it later.
+   */
+  theme?: ShopTheme;
   /**
    * Optional ADVISORY shipping-region policy (see `ShippingPolicy`). Absent ⇒
    * the shop ships worldwide. NOT on-chain-enforced (CLAUDE.md §5).
