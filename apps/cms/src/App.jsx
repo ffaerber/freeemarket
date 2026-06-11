@@ -10,8 +10,9 @@
  * Styling: src/design/identity.css + pages.css. Contract writes are REAL.
  */
 import React, { useState } from 'react';
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { LayoutGrid, Package, Inbox, Store, ExternalLink, Power, Wallet } from 'lucide-react';
+import { useAccount } from 'wagmi';
+import { LayoutGrid, Package, Inbox, Store, ExternalLink } from 'lucide-react';
+import { SwarmConnectButton, useBeeNode } from '@ffaerber/swarm-connect';
 import Dashboard from './sections/Dashboard.jsx';
 import ShopSection from './sections/ShopSection.jsx';
 import ListingsSection from './sections/ListingsSection.jsx';
@@ -20,7 +21,7 @@ import Onboarding from './sections/Onboarding.jsx';
 import { useShopProfile } from './hooks/useShopProfile.js';
 import { useMyHandle } from './hooks/useMyHandle.js';
 import { Banner } from './ui.jsx';
-import { UNCONFIGURED, UPLOADS_DISABLED, BEE_URL, GNOSIS_CHAIN_ID } from './config.js';
+import { UNCONFIGURED, UPLOADS_DISABLED, BEE_URL } from './config.js';
 
 const STOREFRONT_BASE = 'https://freeemarket.eth.limo';
 
@@ -31,8 +32,6 @@ const TABS = [
   { id: 'shop', label: 'Shop & shipping', icon: Store, title: 'Shop & shipping' },
 ];
 
-const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
-
 function Wordmark() {
   return (
     <a href={STOREFRONT_BASE} className="fm-logo" target="_blank" rel="noreferrer">
@@ -41,19 +40,9 @@ function Wordmark() {
   );
 }
 
-function WalletPill() {
-  const { address, isConnected } = useAccount();
-  const { connect, connectors, isPending } = useConnect();
-  const { disconnect } = useDisconnect();
-  if (isConnected) {
-    return <button className="fm-wallet" onClick={() => disconnect()} title="Disconnect"><span className="fm-dot" /> {short(address)} <Power size={13} /></button>;
-  }
-  const injected = connectors[0];
-  return (
-    <button className="fm-wallet" onClick={() => injected && connect({ connector: injected, chainId: GNOSIS_CHAIN_ID })} disabled={isPending || !injected}>
-      <Wallet size={14} /> {isPending ? 'connecting…' : 'connect wallet'}
-    </button>
-  );
+/** Swarm connect wizard (wallet + Bee node + postage stamp), pinned to our node. */
+function SwarmConnect() {
+  return <SwarmConnectButton beeApiUrl={BEE_URL} />;
 }
 
 /** Centered connect / unconfigured screen (no console until ready). */
@@ -74,6 +63,7 @@ export default function App() {
 
   const { registered, profile, isLoading: shopLoading } = useShopProfile();
   const { handle, isLoading: handleLoading } = useMyHandle();
+  const node = useBeeNode(BEE_URL); // live Bee node health for the sidebar HUD
 
   // Unconfigured build — no contract address.
   if (UNCONFIGURED) {
@@ -90,8 +80,8 @@ export default function App() {
     return (
       <Gate>
         <h2 className="fm-h3" style={{ marginBottom: 8 }}>Open your shop</h2>
-        <p className="fm-body" style={{ marginBottom: 22 }}>Connect a wallet on Gnosis Chain — that address is your seller identity.</p>
-        <div style={{ display: 'flex', justifyContent: 'center' }}><WalletPill /></div>
+        <p className="fm-body" style={{ marginBottom: 22 }}>Connect your wallet, Bee node and a postage stamp — that address is your seller identity.</p>
+        <div style={{ display: 'flex', justifyContent: 'center' }}><SwarmConnect /></div>
       </Gate>
     );
   }
@@ -143,7 +133,12 @@ export default function App() {
         </nav>
         <div className="side-foot">
           <div className="fm-hud" style={{ padding: '12px 14px', fontSize: 11 }}>
-            <div className="fm-hud-row" style={{ padding: '4px 0' }}><span className="fm-hud-key">node</span><span className="fm-hud-val">{UPLOADS_DISABLED ? 'no stamp' : 'bee · ok'}</span></div>
+            <div className="fm-hud-row" style={{ padding: '4px 0' }}>
+              <span className="fm-hud-key">node</span>
+              <span className={`fm-hud-val${node.isRunning ? ' fm-hud-val--neon' : ''}`}>
+                {node.isChecking ? 'checking…' : node.isRunning ? `bee · ${node.version || 'ok'}` : 'offline'}
+              </span>
+            </div>
             <div className="fm-hud-row" style={{ padding: '4px 0' }}><span className="fm-hud-key">network</span><span className="fm-hud-val fm-hud-val--neon">gnosis · 100</span></div>
           </div>
         </div>
@@ -157,7 +152,7 @@ export default function App() {
           <a href={`${STOREFRONT_BASE}/${handle}`} className="fm-btn fm-btn--ghost fm-btn--sm" target="_blank" rel="noreferrer">
             View storefront <ExternalLink size={13} />
           </a>
-          <WalletPill />
+          <SwarmConnect />
         </header>
 
         <div className="cms-content">
