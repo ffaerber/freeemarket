@@ -1,7 +1,7 @@
 {
   "name": "@freemarket/storefront",
   "version": "0.1.0",
-  "description": "FreeMarket white-label storefront — Vite + wagmi v2 + viem + bee-js. Reads listings on-chain, fetches metadata from Swarm, real approve+buy escrow checkout.",
+  "description": "FreeeMarket white-label storefront — Vite + wagmi v2 + viem + bee-js. Reads listings on-chain, fetches metadata from Swarm, real approve+buy escrow checkout.",
   "license": "MIT",
   "type": "module",
   "scripts": {

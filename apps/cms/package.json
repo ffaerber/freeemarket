@@ -1,7 +1,7 @@
 {
   "name": "@freemarket/cms",
   "version": "0.1.0",
-  "description": "FreeMarket merchant back-office (CMS/admin) — Vite + wagmi v2 + viem + bee-js. Shop registration, listing CRUD + Swarm image upload, order dashboard with claim/dispute/resolve. PSS decrypt stubbed pending @freemarket/messaging.",
+  "description": "FreeeMarket merchant back-office (CMS/admin) — Vite + wagmi v2 + viem + bee-js. Shop registration, listing CRUD + Swarm image upload, order dashboard with claim/dispute/resolve. PSS decrypt stubbed pending @freemarket/messaging.",
   "license": "MIT",
   "type": "module",
   "scripts": {

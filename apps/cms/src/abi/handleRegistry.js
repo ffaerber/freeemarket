@@ -1,5 +1,5 @@
 /**
- * Minimal viem-style ABI for the FreeMarket `HandleRegistry` contract.
+ * Minimal viem-style ABI for the FreeeMarket `HandleRegistry` contract.
  * The CMS needs the write side (claim/release) plus the reverse read
  * (sellerHandle) to show the merchant's current handle.
  * Full surface lives in contracts/src/HandleRegistry.sol.

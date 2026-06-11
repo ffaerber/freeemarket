@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
-// FreeMarket CMS / admin — Vite config (copied from the storefront).
+// FreeeMarket CMS / admin — Vite config (copied from the storefront).
 //
 // @ethersphere/bee-js targets Node and imports Node builtins (`stream`, `fs`,
 // `path`, plus a `Buffer`/`global` runtime). The CMS uses bee-js's WRITE path

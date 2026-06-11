@@ -1,5 +1,5 @@
 /**
- * wagmi v2 + viem configuration for the FreeMarket CMS / admin.
+ * wagmi v2 + viem configuration for the FreeeMarket CMS / admin.
  *
  * Mirrors the storefront: the escrow contract lives on Gnosis Chain (id 100),
  * and we use an injected connector (MetaMask / Rabby / Freedom Browser's

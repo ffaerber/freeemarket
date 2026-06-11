@@ -2,7 +2,7 @@
   "name": "@freemarket/scripts",
   "version": "0.1.0",
   "private": true,
-  "description": "FreeMarket ops scripts — per-shop Swarm + ENS deploy pipeline (CLAUDE.md §8).",
+  "description": "FreeeMarket ops scripts — per-shop Swarm + ENS deploy pipeline (CLAUDE.md §8).",
   "license": "MIT",
   "type": "module",
   "scripts": {

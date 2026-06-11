@@ -1,5 +1,5 @@
 /**
- * FreeMarket storefront configuration.
+ * FreeeMarket storefront configuration.
  *
  * Everything here is driven by Vite env vars (`import.meta.env.VITE_*`), with
  * sensible fallbacks. See `.env.example` for the documented var set.

@@ -1,5 +1,5 @@
 /**
- * FreeMarket storefront entry point.
+ * FreeeMarket storefront entry point.
  *
  * Mounts the app inside the wagmi v2 + react-query providers. The wagmi config
  * targets Gnosis Chain (id 100) with an injected connector; react-query backs

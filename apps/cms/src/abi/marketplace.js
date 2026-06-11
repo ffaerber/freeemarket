@@ -1,5 +1,5 @@
 /**
- * Fuller viem-style ABI for the FreeMarket `Marketplace` contract — the CMS
+ * Fuller viem-style ABI for the FreeeMarket `Marketplace` contract — the CMS
  * write surface plus the views/events it reads. Signatures match
  * contracts/src/Marketplace.sol EXACTLY.
  *

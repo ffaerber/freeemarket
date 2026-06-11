@@ -1,5 +1,5 @@
 /**
- * Minimal viem-style ABI for the FreeMarket `HandleRegistry` contract.
+ * Minimal viem-style ABI for the FreeeMarket `HandleRegistry` contract.
  * The storefront only needs the read side: resolve a URL handle → seller
  * address. Full surface lives in contracts/src/HandleRegistry.sol.
  */

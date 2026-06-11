@@ -1,5 +1,5 @@
 /**
- * wagmi v2 + viem configuration for the FreeMarket storefront.
+ * wagmi v2 + viem configuration for the FreeeMarket storefront.
  *
  * The escrow contract lives on Gnosis Chain (id 100) regardless of where the
  * shop's ENS name is hosted. We use an injected connector (MetaMask / Rabbit /

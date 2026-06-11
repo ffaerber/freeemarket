@@ -1,5 +1,5 @@
 /**
- * ECIES encryption primitives for FreeMarket private messages.
+ * ECIES encryption primitives for FreeeMarket private messages.
  *
  * IMPORTANT (CLAUDE.md §3): this uses ECIES via `eciesjs` — NOT MetaMask's
  * native `eth_decrypt` / `eth_getEncryptionPublicKey`, which are DEPRECATED and

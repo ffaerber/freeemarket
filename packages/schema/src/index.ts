@@ -1,5 +1,5 @@
 /**
- * FreeMarket shared Swarm schema.
+ * FreeeMarket shared Swarm schema.
  *
  * This is the real platform contract (see CLAUDE.md §6): the CMS writes these
  * objects to Swarm, and any storefront reads them. Pin this before building

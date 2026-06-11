@@ -1,5 +1,5 @@
 /**
- * Minimal viem-style ABI for the FreeMarket `Marketplace` contract.
+ * Minimal viem-style ABI for the FreeeMarket `Marketplace` contract.
  * Only the pieces the storefront needs: the `ListingCreated`/`OrderFunded`
  * events, the `listings`/`shops`/`acceptedTokens` views, and `buy`.
  * Full surface lives in contracts/src/Marketplace.sol.

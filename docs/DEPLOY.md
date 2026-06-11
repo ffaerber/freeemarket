@@ -1,4 +1,4 @@
-# FreeMarket — Per-shop Deploy Pipeline (Swarm + ENS)
+# FreeeMarket — Per-shop Deploy Pipeline (Swarm + ENS)
 
 How to put one shop's storefront on Swarm and point its ENS name at it. This is
 CLAUDE.md §8 / build step #7, implemented as a real, runnable script:

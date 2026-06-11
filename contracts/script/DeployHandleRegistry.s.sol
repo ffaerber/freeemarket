@@ -22,7 +22,7 @@ import {HandleRegistry} from "../src/HandleRegistry.sol";
  */
 contract DeployHandleRegistry is Script {
     function run() external returns (HandleRegistry registry) {
-        console2.log("== FreeMarket HandleRegistry deploy ==");
+        console2.log("== FreeeMarket HandleRegistry deploy ==");
 
         vm.startBroadcast();
         registry = new HandleRegistry();

@@ -1,5 +1,5 @@
 /**
- * FreeMarket — white-label storefront engine (REAL, data-driven).
+ * FreeeMarket — white-label storefront engine (REAL, data-driven).
  *
  * Ported from the demo template: same theme engine, hero, product grid, and
  * product modal — but the shop profile + listings now come from the chain and
@@ -384,7 +384,7 @@ export default function Storefront() {
 
   let body;
   if (status === 'landing') {
-    // Root path → the FreeMarket portal (landing + shop directory).
+    // Root path → the FreeeMarket portal (landing + shop directory).
     body = <Portal />;
   } else if (status === 'resolving') {
     body = <CenterNote title="Loading shop…" detail={handle ? `Resolving “${handle}”` : ''} />;

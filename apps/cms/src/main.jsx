@@ -1,5 +1,5 @@
 /**
- * FreeMarket CMS / admin entry point.
+ * FreeeMarket CMS / admin entry point.
  *
  * Mounts the app inside the wagmi v2 + react-query providers (same setup as the
  * storefront). The wagmi config targets Gnosis Chain (id 100) with an injected

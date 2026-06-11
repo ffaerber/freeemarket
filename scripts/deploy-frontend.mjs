@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * FreeMarket — per-shop Swarm + ENS deploy pipeline (CLAUDE.md §8, build step #7).
+ * FreeeMarket — per-shop Swarm + ENS deploy pipeline (CLAUDE.md §8, build step #7).
  *
  * Implements the four-step flow from the spec as a REAL, runnable pipeline:
  *
@@ -395,7 +395,7 @@ async function setContenthashOnChain({ ensName, node, contenthash, ensRpc }) {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  log('== FreeMarket storefront deploy (Swarm + ENS) ==');
+  log('== FreeeMarket storefront deploy (Swarm + ENS) ==');
 
   // Resolve config + validate the hard requirements up front so we fail fast
   // with a clear message rather than deep inside an upload.

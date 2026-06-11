@@ -1,4 +1,4 @@
-# FreeMarket Contracts
+# FreeeMarket Contracts
 
 Foundry project for the shared `Marketplace` escrow + listings contract — the
 single source of truth for all shops on Gnosis Chain.

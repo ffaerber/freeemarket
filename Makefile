@@ -1,10 +1,10 @@
-# FreeMarket — monorepo build / test / deploy
+# FreeeMarket — monorepo build / test / deploy
 # Adapt per-shop deploy from SwarmChat's `make deploy-frontend` (see CLAUDE.md §8).
 
 .PHONY: help build test contracts-build contracts-test deploy-contract deploy-handle-registry storefront cms deploy-frontend deploy-frontend-build deploy-cms deploy-cms-build
 
 help:
-	@echo "FreeMarket targets:"
+	@echo "FreeeMarket targets:"
 	@echo "  make build            - build all packages and apps"
 	@echo "  make test             - run all tests"
 	@echo "  make contracts-build  - forge build (contracts/)"

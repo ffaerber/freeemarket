@@ -1,4 +1,4 @@
-# FreeMarket CMS / Admin
+# FreeeMarket CMS / Admin
 
 Shared merchant back-office — **one app for all shops**. The merchant connects
 their own wallet and that address *is* their seller address (no per-shop build,
