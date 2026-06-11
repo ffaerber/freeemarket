@@ -36,7 +36,9 @@ export const SELLER = envOr('VITE_SELLER', '');
  */
 export const HANDLE_REGISTRY = envOr('VITE_HANDLE_REGISTRY', '');
 export const RPC_URL = envOr('VITE_RPC_URL', 'https://rpc.gnosischain.com');
-export const BEE_URL = envOr('VITE_BEE_URL', 'https://api.gateway.ethswarm.org');
+// Default to the buyer's LOCAL Bee node (not the public gateway) — reads,
+// the swarm-connect health/stamp checks, and PSS all expect a full node.
+export const BEE_URL = envOr('VITE_BEE_URL', 'http://localhost:1633');
 export const SHOP_METADATA = envOr('VITE_SHOP_METADATA', '');
 
 /**

@@ -38,7 +38,7 @@ Only `VITE_`-prefixed vars are exposed to the client. Never commit secrets
 | `VITE_MARKETPLACE_ADDRESS` | for real path | — | Shared `Marketplace` escrow contract on Gnosis (id 100). |
 | `VITE_SELLER` | for real path | — | This shop's seller address. Listings are filtered to those created by it. |
 | `VITE_RPC_URL` | no | `https://rpc.gnosischain.com` | Gnosis Chain JSON-RPC endpoint. |
-| `VITE_BEE_URL` | no | `https://api.gateway.ethswarm.org` | Swarm Bee/gateway base for metadata + images. **PSS requires a full Bee node** (e.g. `http://localhost:1633`), not a gateway. |
+| `VITE_BEE_URL` | no | `http://localhost:1633` | LOCAL full Bee node for metadata + images, swarm-connect node/stamp checks, and PSS. The public gateway is not a full node and is not used. |
 | `VITE_SHOP_METADATA` | no | — | Optional `bytes32`/ref override for the shop profile; short-circuits the on-chain `shops(seller)` read. |
 | `VITE_CONTACT_REGISTRY` | for live PSS | — | SwarmChat `ContactRegistry` address — resolves the **seller's** published ECIES public key on-chain so the buyer can encrypt their shipping address to it (CLAUDE.md §5). Unset / no entry ⇒ unconfigured ⇒ stub. Confirm the registry's exact ABI/selector in `src/lib/contactRegistry.js`. |
 | `VITE_POSTAGE_BATCH_ID` | for live PSS | — | Postage batch ("stamp") for the **buyer's** Bee node — required to send the encrypted address over PSS via `BeeTransport`. Not a secret, but per-node. Unset ⇒ address delivery stays stubbed. |

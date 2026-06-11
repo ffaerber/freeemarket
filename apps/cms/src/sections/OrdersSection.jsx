@@ -25,7 +25,8 @@ import { Lock, Clock, Gavel, Truck, RefreshCw, ShieldCheck, KeyRound, Send } fro
 import { marketplaceAbi, orderStateLabel } from '../abi/marketplace.js';
 import { useOrders } from '../hooks/useOrders.js';
 import { receiveDecryptedAddress, sendShipmentUpdateFromCms, makeSignDigest } from '../messaging/index.js';
-import { MARKETPLACE_ADDRESS, GNOSIS_CHAIN_ID, EXPLORER_URL, BEE_URL, POSTAGE_BATCH_ID } from '../config.js';
+import { usePostageBatch } from '../hooks/usePostageBatch.js';
+import { MARKETPLACE_ADDRESS, GNOSIS_CHAIN_ID, EXPLORER_URL, BEE_URL } from '../config.js';
 import { Card, Button, GhostButton, SectionHeader, Banner, ErrorNote, Pill } from '../ui.jsx';
 
 const STATE = { NONE: 0, FUNDED: 1, COMPLETED: 2, DISPUTED: 3, REFUNDED: 4 };
@@ -178,6 +179,7 @@ function OrderRow({ order, autoReleasePeriod, isArbiter, sellerAddress, privateK
   const publicClient = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
   const { data: walletClient } = useWalletClient({ chainId: GNOSIS_CHAIN_ID });
   const { writeContractAsync } = useWriteContract();
+  const { batchId } = usePostageBatch();
 
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
@@ -255,7 +257,7 @@ function OrderRow({ order, autoReleasePeriod, isArbiter, sellerAddress, privateK
         publicClient,
         signMessage,
         beeUrl: BEE_URL,
-        postageBatchId: POSTAGE_BATCH_ID,
+        postageBatchId: batchId,
       });
       setSendResult(result);
     } catch (err) {

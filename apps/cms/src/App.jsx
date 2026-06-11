@@ -20,8 +20,9 @@ import OrdersSection from './sections/OrdersSection.jsx';
 import Onboarding from './sections/Onboarding.jsx';
 import { useShopProfile } from './hooks/useShopProfile.js';
 import { useMyHandle } from './hooks/useMyHandle.js';
+import { usePostageBatch } from './hooks/usePostageBatch.js';
 import { Banner } from './ui.jsx';
-import { UNCONFIGURED, UPLOADS_DISABLED, BEE_URL } from './config.js';
+import { UNCONFIGURED, BEE_URL } from './config.js';
 
 const STOREFRONT_BASE = 'https://freeemarket.eth.limo';
 
@@ -64,6 +65,7 @@ export default function App() {
   const { registered, profile, isLoading: shopLoading } = useShopProfile();
   const { handle, isLoading: handleLoading } = useMyHandle();
   const node = useBeeNode(BEE_URL); // live Bee node health for the sidebar HUD
+  const { ready: uploadsReady, isChecking: batchChecking } = usePostageBatch();
 
   // Unconfigured build — no contract address.
   if (UNCONFIGURED) {
@@ -139,6 +141,10 @@ export default function App() {
                 {node.isChecking ? 'checking…' : node.isRunning ? `bee · ${node.version || 'ok'}` : 'offline'}
               </span>
             </div>
+            <div className="fm-hud-row" style={{ padding: '4px 0' }}>
+              <span className="fm-hud-key">stamp</span>
+              <span className={`fm-hud-val${uploadsReady ? ' fm-hud-val--neon' : ''}`}>{batchChecking ? 'checking…' : uploadsReady ? 'ready' : 'none'}</span>
+            </div>
             <div className="fm-hud-row" style={{ padding: '4px 0' }}><span className="fm-hud-key">network</span><span className="fm-hud-val fm-hud-val--neon">gnosis · 100</span></div>
           </div>
         </div>
@@ -156,8 +162,8 @@ export default function App() {
         </header>
 
         <div className="cms-content">
-          {UPLOADS_DISABLED && (
-            <Banner>Uploads disabled — no Swarm postage batch (<code>VITE_POSTAGE_BATCH_ID</code>). Saving a profile or listing needs a writeable Bee node (<code>{BEE_URL}</code>) + a stamp.</Banner>
+          {!uploadsReady && !batchChecking && (
+            <Banner>No usable postage stamp on your Bee node (<code>{BEE_URL}</code>). Connect a local node and buy a stamp via the Swarm connect button, or set <code>VITE_POSTAGE_BATCH_ID</code>. Saving a profile or listing needs a stamp.</Banner>
           )}
           {sectionEl}
         </div>
