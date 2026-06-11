@@ -1,5 +1,5 @@
 /**
- * JSON Schema (draft-07) definitions for the FreeMarket Swarm schema.
+ * JSON Schema (draft-07) definitions for the FreeeMarket Swarm schema.
  *
  * These mirror the TypeScript interfaces in `./index.ts` and are the runtime
  * source of truth used by `./validate.ts`. Any client (CMS, storefront) can

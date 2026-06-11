@@ -1,4 +1,4 @@
-# FreeMarket Storefront
+# FreeeMarket Storefront
 
 Config-driven, white-label storefront engine: one component renders radically
 different shops from a shop profile + listings. Clone + configure env + deploy

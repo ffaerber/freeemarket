@@ -1,6 +1,6 @@
 # @freemarket/messaging
 
-Bidirectional encrypted messaging over **Swarm PSS** for FreeMarket. Implements
+Bidirectional encrypted messaging over **Swarm PSS** for FreeeMarket. Implements
 the private-message flow in [CLAUDE.md §5](../../CLAUDE.md): each payload is
 **ECIES-encrypted** to the recipient's public key (`eciesjs`), wrapped in a
 **signed envelope** so the receiver can cryptographically verify the sender is

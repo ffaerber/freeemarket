@@ -109,7 +109,7 @@ contract Deploy is Script {
     }
 
     function _logPlan(address owner, address[] memory tokens) internal pure {
-        console2.log("== FreeMarket Marketplace deploy ==");
+        console2.log("== FreeeMarket Marketplace deploy ==");
         console2.log("owner  :", owner);
         console2.log("tokens :", tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {

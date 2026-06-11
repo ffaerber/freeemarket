@@ -1,6 +1,6 @@
 # @freemarket/schema
 
-Shared Swarm JSON schema for all FreeMarket clients (CMS + storefronts).
+Shared Swarm JSON schema for all FreeeMarket clients (CMS + storefronts).
 
 This package is the platform contract described in [CLAUDE.md §6](../../CLAUDE.md).
 The CMS writes `ShopProfile` and `ListingMetadata` objects to Swarm; storefronts

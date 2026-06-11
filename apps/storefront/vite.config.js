@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
-// FreeMarket storefront — Vite config.
+// FreeeMarket storefront — Vite config.
 //
 // @ethersphere/bee-js targets Node and imports Node builtins (`stream`, `fs`,
 // `path`, plus a `Buffer`/`global` runtime). For a browser SPA build we polyfill

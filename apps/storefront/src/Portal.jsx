@@ -1,7 +1,7 @@
 /**
  * Portal — the root page of freeemarket.eth (the `/` route).
  *
- * Explains what FreeMarket is, links merchants to the CMS to create a shop, and
+ * Explains what FreeeMarket is, links merchants to the CMS to create a shop, and
  * lists every registered shop by handle (→ /<handle>). The shop directory comes
  * from useShops (HandleRegistry events, verified on-chain). Rendered by
  * Storefront.jsx when useActiveSeller returns status 'landing' (no path handle).
@@ -34,7 +34,7 @@ export default function Portal() {
         <div style={{ maxWidth: 1040, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 22 }}>
             <Store size={22} style={{ color: 'var(--accent)' }} />
-            <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20, letterSpacing: '-0.01em' }}>FreeMarket</span>
+            <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20, letterSpacing: '-0.01em' }}>FreeeMarket</span>
           </div>
           <h1 style={{ fontFamily: 'var(--display)', fontSize: 'clamp(32px, 5vw, 52px)', lineHeight: 1.05, margin: '0 0 16px', maxWidth: '18ch', letterSpacing: '-0.02em' }}>
             A decentralized, multi-vendor marketplace.

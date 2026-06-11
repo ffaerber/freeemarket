@@ -1,5 +1,5 @@
 /**
- * FreeMarket CMS / admin — shell.
+ * FreeeMarket CMS / admin — shell.
  *
  * One SHARED app for all shops: the merchant connects their wallet and that
  * address IS their seller address (no per-shop build, unlike the storefront).
@@ -104,7 +104,7 @@ export default function App() {
         <div style={{ maxWidth: 1080, margin: '0 auto', padding: '16px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Store size={20} style={{ color: 'var(--accent)' }} />
-            <span style={{ fontWeight: 700, fontSize: 17 }}>FreeMarket</span>
+            <span style={{ fontWeight: 700, fontSize: 17 }}>FreeeMarket</span>
             <span style={{ color: 'var(--muted)', fontSize: 13 }}>merchant admin</span>
           </div>
           <WalletControls />

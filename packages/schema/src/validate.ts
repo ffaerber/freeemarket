@@ -1,5 +1,5 @@
 /**
- * Runtime validators for the FreeMarket schema. Thin wrappers over Ajv with
+ * Runtime validators for the FreeeMarket schema. Thin wrappers over Ajv with
  * ergonomic type guards and asserts that the CMS and storefront can share.
  */
 import { Ajv, type ValidateFunction } from 'ajv';

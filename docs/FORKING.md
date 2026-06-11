@@ -1,6 +1,6 @@
-# Forking FreeMarket — adding VAT, fees & business compliance
+# Forking FreeeMarket — adding VAT, fees & business compliance
 
-FreeMarket's mainline is deliberately a **small, plain peer-to-peer market**:
+FreeeMarket's mainline is deliberately a **small, plain peer-to-peer market**:
 no platform fee, no VAT, no business overhead. It's meant for individuals
 exchanging small physical goods — a stall selling fruit, potatoes, jam, honey —
 where the whole point is that two people trade directly and the operator takes
