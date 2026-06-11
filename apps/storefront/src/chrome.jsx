@@ -5,8 +5,8 @@
  * live wallet wiring. Used by both the Portal (landing) and the shop view.
  */
 import React from 'react';
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { GNOSIS_CHAIN_ID, ADMIN_URL, MARKETPLACE_ADDRESS } from './config.js';
+import { SwarmConnectButton } from '@ffaerber/swarm-connect';
+import { ADMIN_URL, MARKETPLACE_ADDRESS, BEE_URL } from './config.js';
 
 /** The freee·market wordmark — the "eee" in brand blue. */
 export function Wordmark({ size }) {
@@ -23,27 +23,13 @@ const SearchIcon = (p) => (
   </svg>
 );
 
-/** Short wallet address. */
-const short = (a) => `${a.slice(0, 4)}…${a.slice(-4)}`;
-
-/** Live connect / address pill styled as the design's .fm-wallet. */
+/**
+ * Swarm connect wizard (wallet + Bee node + postage stamp) from
+ * @ffaerber/swarm-connect, pinned to this app's Bee node. Used in the nav; the
+ * buyer needs a Bee node + stamp to send the encrypted shipping address over PSS.
+ */
 export function WalletButton() {
-  const { address, isConnected } = useAccount();
-  const { connect, connectors, isPending } = useConnect();
-  const { disconnect } = useDisconnect();
-  if (isConnected) {
-    return (
-      <button className="fm-wallet" onClick={() => disconnect()} title="Disconnect">
-        <span className="fm-dot" /> {short(address)}
-      </button>
-    );
-  }
-  const injected = connectors[0];
-  return (
-    <button className="fm-wallet" onClick={() => injected && connect({ connector: injected, chainId: GNOSIS_CHAIN_ID })} disabled={isPending || !injected}>
-      <span className="fm-dot fm-dot--neon" /> {isPending ? 'connecting…' : 'connect'}
-    </button>
-  );
+  return <SwarmConnectButton beeApiUrl={BEE_URL} />;
 }
 
 /** Thin machine utility bar above the nav. */
