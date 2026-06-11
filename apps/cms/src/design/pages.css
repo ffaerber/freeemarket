@@ -1,0 +1,39 @@
+/* Page-local layout for the CMS console. Brand/component styling lives in
+   identity.css; this is the sidebar-console scaffolding from the design mockup. */
+
+.cms { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
+.cms-side { position: sticky; top: 0; height: 100vh; }
+.side-head { padding: 20px 20px 18px; border-bottom: 1px solid var(--border); }
+.side-shop { display: flex; align-items: center; gap: 12px; margin-top: 18px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-sunken); }
+.side-shop-ic { width: 36px; height: 36px; border-radius: var(--radius-sm); background: #fff; border: 1px solid var(--border-strong); display: grid; place-items: center; font-size: 18px; }
+.side-nav { padding: 14px 0; flex: 1; display: flex; flex-direction: column; }
+.side-foot { padding: 16px 20px; border-top: 1px solid var(--border); }
+
+.cms-main { display: flex; flex-direction: column; min-width: 0; }
+.cms-topbar { min-height: var(--fm-nav-h); border-bottom: 1.5px solid var(--border); display: flex; align-items: center; gap: 14px; padding: 12px 28px; background: rgba(255,255,255,0.88); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); position: sticky; top: 0; z-index: 30; flex-wrap: wrap; }
+.cms-content { padding: 28px; max-width: 1140px; width: 100%; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
+.cms-panel { background: #fff; border: 1.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.cms-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--border); }
+.cms-panel-title { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg); }
+.two-col { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; align-items: start; }
+
+@media (max-width: 900px) {
+  .cms { grid-template-columns: 1fr; }
+  .cms-side { display: none; }
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .two-col { grid-template-columns: 1fr; }
+}
+
+/* ---- legacy var aliases: map old theme tokens to the design system so any
+   remaining inline-styled component (Checkout, CMS sections) adopts the look ---- */
+:root {
+  --text: var(--fg);
+  --muted: var(--fg-muted);
+  --surface: var(--bg-raised);
+  --accent2: var(--phos-500);
+  --radius: var(--radius-md);
+  --display: var(--font-serif);
+  --body: var(--font-sans);
+}

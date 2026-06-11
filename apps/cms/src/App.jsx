@@ -1,177 +1,172 @@
 /**
- * FreeeMarket CMS / admin — shell.
+ * FreeeMarket CMS / admin — sidebar console shell (design system).
  *
  * One SHARED app for all shops: the merchant connects their wallet and that
- * address IS their seller address (no per-shop build, unlike the storefront).
+ * address IS their seller address. Left sidebar (shop chip + nav + node/key
+ * HUD), a sticky topbar (section title + view-storefront + wallet), and the
+ * active section in the content area. A connected wallet with no shop/handle
+ * gets the first-run Onboarding wizard instead of the console.
  *
- * Layout: a neutral dark admin theme (config.ADMIN_THEME) set as CSS variables
- * on the root, a top bar with wallet connect + connected address, three tabs
- * (Shop / Listings / Orders), and banners when the app is unconfigured (no
- * VITE_MARKETPLACE_ADDRESS) or can't upload (no postage batch).
- *
- * The contract writes are REAL (registerShop / createListing / updateListing /
- * claim / dispute / resolve). The PSS decrypt of shipping addresses and the
- * seller→buyer tracking-code send are WIRED to @freeemarket/messaging (src/
- * messaging), going live once the merchant unlocks their ECIES key and a full
- * Bee node + ContactRegistry are configured; otherwise they fall back to a
- * graceful stub — CLAUDE.md §5. Run this CMS LOCALLY so the decryption key +
- * plaintext addresses stay on the merchant's machine.
+ * Styling: src/design/identity.css + pages.css. Contract writes are REAL.
  */
 import React, { useState } from 'react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { Store, Package, Inbox, Wallet, Power } from 'lucide-react';
-import { Styles, Button, GhostButton, Banner, Pill } from './ui.jsx';
+import { LayoutGrid, Package, Inbox, Store, ExternalLink, Power, Wallet } from 'lucide-react';
+import Dashboard from './sections/Dashboard.jsx';
 import ShopSection from './sections/ShopSection.jsx';
 import ListingsSection from './sections/ListingsSection.jsx';
 import OrdersSection from './sections/OrdersSection.jsx';
 import Onboarding from './sections/Onboarding.jsx';
 import { useShopProfile } from './hooks/useShopProfile.js';
 import { useMyHandle } from './hooks/useMyHandle.js';
-import {
-  ADMIN_THEME,
-  UNCONFIGURED,
-  UPLOADS_DISABLED,
-  MARKETPLACE_ADDRESS,
-  BEE_URL,
-  GNOSIS_CHAIN_ID,
-} from './config.js';
+import { Banner } from './ui.jsx';
+import { UNCONFIGURED, UPLOADS_DISABLED, BEE_URL, GNOSIS_CHAIN_ID } from './config.js';
+
+const STOREFRONT_BASE = 'https://freeemarket.eth.limo';
 
 const TABS = [
-  { id: 'shop', label: 'Shop', icon: Store, Comp: ShopSection },
-  { id: 'listings', label: 'Listings', icon: Package, Comp: ListingsSection },
-  { id: 'orders', label: 'Orders', icon: Inbox, Comp: OrdersSection },
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid, title: 'Dashboard' },
+  { id: 'listings', label: 'Listings', icon: Package, title: 'Listings' },
+  { id: 'orders', label: 'Orders', icon: Inbox, title: 'Orders' },
+  { id: 'shop', label: 'Shop & shipping', icon: Store, title: 'Shop & shipping' },
 ];
 
-function themeVars(t) {
-  return {
-    '--bg': t.bg, '--surface': t.surface, '--text': t.text, '--muted': t.muted,
-    '--accent': t.accent, '--accent2': t.accent2, '--border': t.border,
-    '--radius': t.radius, '--display': t.display, '--body': t.body,
-  };
+const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+
+function Wordmark() {
+  return (
+    <a href={STOREFRONT_BASE} className="fm-logo" target="_blank" rel="noreferrer">
+      <span className="mk">fr</span><span className="eee">eee</span><span className="mk">market</span>
+    </a>
+  );
 }
 
-function WalletControls() {
+function WalletPill() {
   const { address, isConnected } = useAccount();
-  const { connect, connectors, isPending, error } = useConnect();
+  const { connect, connectors, isPending } = useConnect();
   const { disconnect } = useDisconnect();
-
   if (isConnected) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Pill tone="accent2">{address.slice(0, 6)}…{address.slice(-4)}</Pill>
-        <GhostButton onClick={() => disconnect()} style={{ padding: '8px 12px', fontSize: 13 }}>
-          <Power size={14} /> Disconnect
-        </GhostButton>
-      </div>
-    );
+    return <button className="fm-wallet" onClick={() => disconnect()} title="Disconnect"><span className="fm-dot" /> {short(address)} <Power size={13} /></button>;
   }
-
   const injected = connectors[0];
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <Button
-        onClick={() => injected && connect({ connector: injected, chainId: GNOSIS_CHAIN_ID })}
-        disabled={isPending || !injected}
-      >
-        <Wallet size={15} /> {isPending ? 'Connecting…' : 'Connect wallet'}
-      </Button>
-      {error && <span style={{ color: '#ff6b6b', fontSize: 12 }}>{error.shortMessage || error.message}</span>}
+    <button className="fm-wallet" onClick={() => injected && connect({ connector: injected, chainId: GNOSIS_CHAIN_ID })} disabled={isPending || !injected}>
+      <Wallet size={14} /> {isPending ? 'connecting…' : 'connect wallet'}
+    </button>
+  );
+}
+
+/** Centered connect / unconfigured screen (no console until ready). */
+function Gate({ children }) {
+  return (
+    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
+      <div style={{ maxWidth: 460, width: '100%', textAlign: 'center' }}>
+        <div style={{ marginBottom: 22 }}><Wordmark /></div>
+        {children}
+      </div>
     </div>
   );
 }
 
 export default function App() {
   const { isConnected } = useAccount();
-  const [tab, setTab] = useState('shop');
-  const Active = TABS.find((t) => t.id === tab)?.Comp;
+  const [tab, setTab] = useState('dashboard');
 
-  // Onboarding gate: a connected, configured wallet with no shop OR no handle yet
-  // gets the first-run wizard instead of the tabs. Wait for both reads to settle
-  // so existing merchants don't see a flash of onboarding.
-  const { registered, isLoading: shopLoading } = useShopProfile();
+  const { registered, profile, isLoading: shopLoading } = useShopProfile();
   const { handle, isLoading: handleLoading } = useMyHandle();
-  const ready = isConnected && !UNCONFIGURED;
-  const gateLoading = ready && (shopLoading || handleLoading);
-  const needsOnboarding = ready && !gateLoading && (!registered || !handle);
-  const showTabs = ready && !gateLoading && !needsOnboarding;
+
+  // Unconfigured build — no contract address.
+  if (UNCONFIGURED) {
+    return (
+      <Gate>
+        <h2 className="fm-h3" style={{ marginBottom: 10 }}>Merchant console</h2>
+        <Banner tone="error">Unconfigured — set <code>VITE_MARKETPLACE_ADDRESS</code> (Gnosis) in <code>.env</code>. On-chain reads/writes are disabled.</Banner>
+      </Gate>
+    );
+  }
+
+  // Not connected — prompt to connect.
+  if (!isConnected) {
+    return (
+      <Gate>
+        <h2 className="fm-h3" style={{ marginBottom: 8 }}>Open your shop</h2>
+        <p className="fm-body" style={{ marginBottom: 22 }}>Connect a wallet on Gnosis Chain — that address is your seller identity.</p>
+        <div style={{ display: 'flex', justifyContent: 'center' }}><WalletPill /></div>
+      </Gate>
+    );
+  }
+
+  const gateLoading = shopLoading || handleLoading;
+  const needsOnboarding = !gateLoading && (!registered || !handle);
+
+  if (gateLoading) {
+    return <Gate><p className="fm-body">Checking your shop…</p></Gate>;
+  }
+  if (needsOnboarding) {
+    return (
+      <div className="cms-content" style={{ maxWidth: 720, margin: '0 auto', paddingTop: 40 }}>
+        <div style={{ marginBottom: 24 }}><Wordmark /></div>
+        <Onboarding onDone={() => setTab('listings')} />
+      </div>
+    );
+  }
+
+  const shopName = profile?.name || handle;
+  const active = TABS.find((t) => t.id === tab);
+  const sectionEl =
+    tab === 'dashboard' ? <Dashboard onNewListing={() => setTab('listings')} onGoOrders={() => setTab('orders')} onGoListings={() => setTab('listings')} />
+    : tab === 'listings' ? <ListingsSection />
+    : tab === 'orders' ? <OrdersSection />
+    : <ShopSection />;
 
   return (
-    <div className="fm" style={{ ...themeVars(ADMIN_THEME), background: 'var(--bg)', color: 'var(--text)', minHeight: '100vh', fontFamily: 'var(--body)' }}>
-      <Styles />
-
-      {/* Top bar */}
-      <header style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-        <div style={{ maxWidth: 1080, margin: '0 auto', padding: '16px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Store size={20} style={{ color: 'var(--accent)' }} />
-            <span style={{ fontWeight: 700, fontSize: 17 }}>FreeeMarket</span>
-            <span style={{ color: 'var(--muted)', fontSize: 13 }}>merchant admin</span>
+    <div className="cms">
+      {/* SIDEBAR */}
+      <aside className="fm-side cms-side">
+        <div className="side-head">
+          <Wordmark />
+          <div className="fm-kicker" style={{ fontSize: 9.5, marginTop: 6, color: 'var(--fg-soft)' }}>// merchant console</div>
+          <div className="side-shop">
+            <div className="side-shop-ic">🛍️</div>
+            <div style={{ minWidth: 0 }}>
+              <div className="fm-mono" style={{ fontSize: 12, color: 'var(--fg)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shopName}</div>
+              <div className="fm-mono fm-small" style={{ fontSize: 10, color: 'var(--phos-500)' }}>/{handle}</div>
+            </div>
           </div>
-          <WalletControls />
         </div>
-        {/* Tabs — hidden during first-run onboarding */}
-        {showTabs && (
-        <div style={{ maxWidth: 1080, margin: '0 auto', padding: '0 22px', display: 'flex', gap: 4 }}>
-          {TABS.map(({ id, label, icon: Icon }) => {
-            const active = id === tab;
-            return (
-              <button
-                key={id}
-                className="fm-tab fm-btn"
-                onClick={() => setTab(id)}
-                style={{
-                  background: 'transparent', border: 'none',
-                  borderBottom: `2px solid ${active ? 'var(--accent)' : 'transparent'}`,
-                  color: active ? 'var(--text)' : 'var(--muted)',
-                  fontFamily: 'var(--body)', fontWeight: 600, fontSize: 14,
-                  padding: '12px 14px', display: 'inline-flex', alignItems: 'center', gap: 7,
-                }}
-              >
-                <Icon size={15} /> {label}
-              </button>
-            );
-          })}
+        <nav className="side-nav">
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button key={id} className={`fm-side-link${id === tab ? ' is-active' : ''}`} onClick={() => setTab(id)}>
+              <Icon size={16} /> {label}
+            </button>
+          ))}
+        </nav>
+        <div className="side-foot">
+          <div className="fm-hud" style={{ padding: '12px 14px', fontSize: 11 }}>
+            <div className="fm-hud-row" style={{ padding: '4px 0' }}><span className="fm-hud-key">node</span><span className="fm-hud-val">{UPLOADS_DISABLED ? 'no stamp' : 'bee · ok'}</span></div>
+            <div className="fm-hud-row" style={{ padding: '4px 0' }}><span className="fm-hud-key">network</span><span className="fm-hud-val fm-hud-val--neon">gnosis · 100</span></div>
+          </div>
         </div>
-        )}
-      </header>
+      </aside>
 
-      <main style={{ maxWidth: 1080, margin: '0 auto', padding: '26px 22px 80px' }}>
-        {UNCONFIGURED && (
-          <Banner tone="error">
-            <strong>Unconfigured.</strong> No <code>VITE_MARKETPLACE_ADDRESS</code> set — on-chain reads/writes are
-            disabled. Copy <code>.env.example</code> to <code>.env</code> and set the Marketplace contract address
-            (Gnosis Chain). This is the admin shell preview.
-          </Banner>
-        )}
-        {!UNCONFIGURED && UPLOADS_DISABLED && (
-          <Banner>
-            <strong>Uploads disabled.</strong> No Swarm postage batch (<code>VITE_POSTAGE_BATCH_ID</code>). Saving a
-            shop profile or listing requires uploading JSON/images to a writeable Bee node (<code>{BEE_URL}</code>,
-            NOT a gateway) stamped with a postage batch. See CLAUDE.md §5.
-          </Banner>
-        )}
-        {!UNCONFIGURED && !isConnected && (
-          <Banner tone="info">
-            Connect your wallet to manage your shop. The connected address (on Gnosis Chain) is your seller identity.
-          </Banner>
-        )}
+      {/* MAIN */}
+      <div className="cms-main">
+        <header className="cms-topbar">
+          <div className="fm-eyebrow-title">{active?.title}</div>
+          <div className="fm-nav-spacer" />
+          <a href={`${STOREFRONT_BASE}/${handle}`} className="fm-btn fm-btn--ghost fm-btn--sm" target="_blank" rel="noreferrer">
+            View storefront <ExternalLink size={13} />
+          </a>
+          <WalletPill />
+        </header>
 
-        {/* First-run wizard → onboarding; otherwise the active tab. Sections
-            render read-only/empty states gracefully until a wallet connects. */}
-        {gateLoading ? (
-          <div style={{ color: 'var(--muted)', fontSize: 14, padding: '8px 0' }}>Checking your shop…</div>
-        ) : needsOnboarding ? (
-          <Onboarding onDone={() => setTab('listings')} />
-        ) : (
-          Active && <Active />
-        )}
-
-        <footer style={{ marginTop: 48, paddingTop: 18, borderTop: '1px solid var(--border)', color: 'var(--muted)', fontSize: 12, lineHeight: 1.6 }}>
-          Marketplace: <code>{MARKETPLACE_ADDRESS || '— unset —'}</code> · Bee: <code>{BEE_URL}</code>
-          <br />
-          Run this CMS LOCALLY: shipping-address decryption (PSS) uses your private key — it should never leave your machine. PSS messaging is wired to <code>@freeemarket/messaging</code> and goes live once you unlock your key and point at a full Bee node + ContactRegistry (CLAUDE.md §5).
-        </footer>
-      </main>
+        <div className="cms-content">
+          {UPLOADS_DISABLED && (
+            <Banner>Uploads disabled — no Swarm postage batch (<code>VITE_POSTAGE_BATCH_ID</code>). Saving a profile or listing needs a writeable Bee node (<code>{BEE_URL}</code>) + a stamp.</Banner>
+          )}
+          {sectionEl}
+        </div>
+      </div>
     </div>
   );
 }

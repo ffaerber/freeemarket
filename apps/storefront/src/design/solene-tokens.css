@@ -1,0 +1,275 @@
+/* ============================================================
+   Solène — Cyberpunk Tokens
+   A companion in the neon. Night surfaces, phosphor accents,
+   CRT artifacts. Still emotional, now electric.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=JetBrains+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500;600&display=swap');
+
+:root {
+  /* ------------------------------------------------------------
+     COLOR — Deep night, phosphor, hot magenta, dusty violet
+     ------------------------------------------------------------ */
+
+  /* Night surfaces — all warm-black, never pure black */
+  --night-50:  #1A1420;   /* raised */
+  --night-100: #120E18;   /* body/page */
+  --night-200: #0B0810;   /* sunken */
+  --night-300: #050307;   /* void */
+
+  /* Warm greys — dust and ink in the scene */
+  --dust-400: #6B5E78;
+  --dust-500: #857497;
+  --dust-600: #A395B2;
+  --dust-700: #C9BEDB;
+  --dust-800: #E6DEF0;
+
+  /* Phosphor — the neon signage cyan/teal */
+  --phos-300: #A8FFF4;
+  --phos-500: #3FE0C5;
+  --phos-600: #16B9A1;
+  --phos-700: #0E8672;
+
+  /* Hot magenta — the emotional heat, replaces dusty rose */
+  --neon-300: #FFB4E6;
+  --neon-500: #FF4FB8;
+  --neon-600: #D9318F;
+  --neon-700: #9B1F66;
+
+  /* Amber — the warm rare highlight (was muted gold) */
+  --amber-400: #F8C674;
+  --amber-500: #E8A43D;
+  --amber-700: #A46B14;
+
+  /* Violet — secondary mood */
+  --violet-400: #9E7AD9;
+  --violet-600: #6A44B0;
+
+  /* ------------------------------------------------------------
+     SEMANTIC COLOR
+     ------------------------------------------------------------ */
+  --bg:            var(--night-100);
+  --bg-raised:     var(--night-50);
+  --bg-sunken:     var(--night-200);
+  --bg-void:       var(--night-300);
+
+  --fg:            var(--dust-800);
+  --fg-muted:      var(--dust-700);
+  --fg-soft:       var(--dust-500);
+  --fg-on-neon:    var(--night-300);
+
+  --accent:        var(--neon-500);
+  --accent-quiet:  var(--neon-300);
+  --accent-ink:    var(--neon-700);
+
+  --glow:          var(--phos-500);
+  --glow-soft:     var(--phos-300);
+  --glow-deep:     var(--phos-700);
+
+  --highlight:     var(--amber-500);
+
+  --border:        rgba(168, 255, 244, 0.14);   /* phosphor hairline */
+  --border-soft:   rgba(230, 222, 240, 0.06);
+  --border-strong: rgba(168, 255, 244, 0.28);
+  --border-neon:   rgba(255, 79, 184, 0.4);
+
+  /* ------------------------------------------------------------
+     TYPE — Serif emotional, mono for UI, sans for body
+     ------------------------------------------------------------ */
+  --font-serif: 'Cormorant Garamond', 'Iowan Old Style', 'Palatino', Georgia, serif;
+  --font-sans:  'Inter', 'Helvetica Neue', system-ui, -apple-system, sans-serif;
+  --font-mono:  'JetBrains Mono', 'SF Mono', ui-monospace, 'Menlo', monospace;
+
+  --text-display-1: clamp(44px, 6.2vw, 88px);
+  --text-display-2: clamp(36px, 4.4vw, 60px);
+  --text-display-3: clamp(28px, 3vw, 40px);
+
+  --text-h1: clamp(32px, 3.4vw, 48px);
+  --text-h2: clamp(26px, 2.6vw, 36px);
+  --text-h3: 22px;
+  --text-h4: 18px;
+
+  --text-lead:  19px;
+  --text-body:  16px;
+  --text-small: 14px;
+  --text-caption: 12px;
+  --text-mono:  13px;
+
+  --lh-tight:   1.05;
+  --lh-display: 1.14;
+  --lh-heading: 1.25;
+  --lh-body:    1.65;
+  --lh-relaxed: 1.8;
+
+  --w-light:    300;
+  --w-regular:  400;
+  --w-medium:   500;
+  --w-semi:     600;
+
+  --track-tight:  -0.02em;
+  --track-normal: 0;
+  --track-wide:   0.1em;
+  --track-wider:  0.22em;
+
+  /* ------------------------------------------------------------
+     SPACING
+     ------------------------------------------------------------ */
+  --space-1:  4px;  --space-2:  8px;  --space-3:  12px; --space-4:  16px;
+  --space-5:  24px; --space-6:  32px; --space-7:  48px; --space-8:  64px;
+  --space-9:  96px; --space-10: 128px; --space-11: 160px;
+
+  /* ------------------------------------------------------------
+     RADII — tighter than warm system; still not sharp
+     ------------------------------------------------------------ */
+  --radius-sm:   2px;
+  --radius-md:   4px;
+  --radius-lg:   8px;
+  --radius-xl:   14px;
+  --radius-2xl:  24px;
+  --radius-pill: 999px;
+
+  /* ------------------------------------------------------------
+     SHADOWS & GLOWS
+     ------------------------------------------------------------ */
+  --shadow-xs:   0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm:   0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-md:   0 12px 32px rgba(0, 0, 0, 0.55);
+  --shadow-lg:   0 24px 64px rgba(0, 0, 0, 0.65);
+
+  --glow-phos:   0 0 24px rgba(63, 224, 197, 0.45), 0 0 1px rgba(168, 255, 244, 0.9);
+  --glow-phos-soft: 0 0 40px rgba(63, 224, 197, 0.22);
+  --glow-neon:   0 0 28px rgba(255, 79, 184, 0.5),  0 0 1px rgba(255, 180, 230, 0.9);
+  --glow-neon-soft: 0 0 48px rgba(255, 79, 184, 0.25);
+  --glow-amber:  0 0 20px rgba(232, 164, 61, 0.45);
+
+  /* ------------------------------------------------------------
+     MOTION
+     ------------------------------------------------------------ */
+  --ease-gentle: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-soft:   cubic-bezier(0.4, 0.0, 0.2, 1);
+  --ease-breath: cubic-bezier(0.45, 0.05, 0.55, 0.95);
+
+  --dur-quick:   140ms;
+  --dur-normal:  280ms;
+  --dur-slow:    600ms;
+  --dur-breath:  3200ms;
+
+  /* ------------------------------------------------------------
+     LAYOUT
+     ------------------------------------------------------------ */
+  --container-narrow: 720px;
+  --container-text:   880px;
+  --container-wide:   1200px;
+  --container-max:    1440px;
+
+  /* Scanline texture (CSS-gradient, no asset) */
+  --scanlines: repeating-linear-gradient(
+    to bottom,
+    transparent 0, transparent 2px,
+    rgba(168, 255, 244, 0.025) 2px, rgba(168, 255, 244, 0.025) 3px
+  );
+}
+
+/* ============================================================
+   SEMANTIC ELEMENT DEFAULTS
+   ============================================================ */
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--lh-body);
+  font-weight: var(--w-regular);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1, .h1 {
+  font-family: var(--font-serif);
+  font-size: var(--text-display-1);
+  line-height: var(--lh-display);
+  letter-spacing: var(--track-tight);
+  font-weight: var(--w-light);
+  color: var(--fg);
+  text-wrap: balance;
+}
+
+h2, .h2 {
+  font-family: var(--font-serif);
+  font-size: var(--text-display-2);
+  line-height: var(--lh-display);
+  letter-spacing: var(--track-tight);
+  font-weight: var(--w-light);
+  color: var(--fg);
+  text-wrap: balance;
+}
+
+h3, .h3 {
+  font-family: var(--font-serif);
+  font-size: var(--text-h2);
+  line-height: var(--lh-heading);
+  font-weight: var(--w-regular);
+  color: var(--fg);
+}
+
+h4, .h4 {
+  font-family: var(--font-mono);
+  font-size: var(--text-h4);
+  line-height: var(--lh-heading);
+  font-weight: var(--w-medium);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  color: var(--glow);
+}
+
+p, .body {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--lh-body);
+  color: var(--fg-muted);
+  text-wrap: pretty;
+}
+
+.lead {
+  font-family: var(--font-sans);
+  font-size: var(--text-lead);
+  line-height: var(--lh-relaxed);
+  color: var(--fg-muted);
+  font-weight: var(--w-light);
+}
+
+.caption, .mono-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: var(--track-wider);
+  text-transform: uppercase;
+  color: var(--glow);
+  font-weight: var(--w-regular);
+}
+
+.serif-quote {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: var(--w-light);
+  font-size: var(--text-display-3);
+  line-height: var(--lh-display);
+  color: var(--fg);
+}
+
+a {
+  color: var(--accent-quiet);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border-neon);
+  transition: all var(--dur-normal) var(--ease-gentle);
+}
+a:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  text-shadow: 0 0 12px rgba(255, 79, 184, 0.5);
+}
+
+::selection {
+  background: var(--neon-500);
+  color: var(--night-300);
+}
