@@ -75,7 +75,7 @@ const SHIPPING_MODES = [
 
 export default function ShopSection() {
   const { registered, profile, isLoading, error: readError, refetch } = useShopProfile();
-  const { batchId, ready: uploadsReady, isChecking: batchChecking } = usePostageBatch();
+  const { batchId, beeUrl, ready: uploadsReady, isChecking: batchChecking, error: batchError } = usePostageBatch();
   const publicClient = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
   const { writeContractAsync } = useWriteContract();
 
@@ -148,7 +148,7 @@ export default function ShopSection() {
     if (!file) return;
     setActionError(null);
     try {
-      const bee = makeBee(BEE_URL);
+      const bee = makeBee(beeUrl);
       const ref = await uploadFile(bee, batchId, file);
       set(key, ref);
     } catch (err) {
@@ -191,7 +191,7 @@ export default function ShopSection() {
       const profileObj = assertShopProfile(buildProfile());
 
       // 2. Upload the profile JSON to Swarm.
-      const bee = makeBee(BEE_URL);
+      const bee = makeBee(beeUrl);
       const ref = await uploadJson(bee, batchId, profileObj);
 
       // 3. registerShop(bytes32 metadata).

@@ -1,41 +1,68 @@
 /**
- * usePostageBatch — resolve a Swarm postage batch for uploads.
+ * usePostageBatch — resolve a Swarm postage batch + the Bee node URL to upload to.
  *
- * Prefers an explicit VITE_POSTAGE_BATCH_ID override; otherwise AUTO-DETECTS the
- * first usable stamp on the connected Bee node (GET /stamps). So a merchant
- * running a local Bee node with a funded stamp can upload with no env config —
- * matching the swarm-connect wizard's node/stamp model. Shared via react-query,
- * so every section sees the same resolved batch from one fetch.
+ * Resolution:
+ *   1. Bee URL = the node the user configured in the swarm-connect modal
+ *      (persisted to localStorage by the package), else VITE_BEE_URL. This keeps
+ *      detection on the SAME node the Swarm connect button uses — they were
+ *      previously decoupled (button on the user's node, this on a static URL).
+ *   2. Batch = VITE_POSTAGE_BATCH_ID override, else AUTO-DETECT the first usable
+ *      stamp on that node (GET /stamps, longest TTL first).
+ *
+ * Polls so a newly-bought stamp (or a node-URL change in the modal) is picked up
+ * within ~20s, and surfaces the real fetch error (CORS / offline) for diagnostics.
+ * Consumers should upload to the returned `beeUrl` (the node that holds the stamp).
  */
 import { useQuery } from '@tanstack/react-query';
 import { BEE_URL, POSTAGE_BATCH_ID } from '../config.js';
 
-async function fetchUsableBatch(beeUrl) {
+/** localStorage key the swarm-connect package persists its Bee API URL under. */
+const SWARM_CONNECT_BEE_KEY = 'swarm-connect:bee-api-url';
+
+function resolveBeeUrl() {
+  if (typeof window !== 'undefined') {
+    try {
+      const v = window.localStorage.getItem(SWARM_CONNECT_BEE_KEY);
+      if (v && v.trim()) return v.trim();
+    } catch {
+      /* ignore */
+    }
+  }
+  return BEE_URL;
+}
+
+async function detect(override) {
+  const beeUrl = resolveBeeUrl();
+  if (override) return { beeUrl, batchId: override, error: null };
   const base = beeUrl.replace(/\/+$/, '');
-  const res = await fetch(`${base}/stamps`);
-  if (!res.ok) throw new Error(`Bee /stamps responded ${res.status}`);
-  const data = await res.json();
-  const usable = (data.stamps || []).filter((s) => s.usable);
-  // Prefer the longest-lived stamp so uploads don't land on one about to expire.
-  usable.sort((a, b) => (b.batchTTL || 0) - (a.batchTTL || 0));
-  return usable[0]?.batchID || '';
+  try {
+    const res = await fetch(`${base}/stamps`);
+    if (!res.ok) return { beeUrl, batchId: '', error: `Bee /stamps responded ${res.status}` };
+    const data = await res.json();
+    const usable = (data.stamps || []).filter((s) => s.usable).sort((a, b) => (b.batchTTL || 0) - (a.batchTTL || 0));
+    return { beeUrl, batchId: usable[0]?.batchID || '', error: null };
+  } catch (e) {
+    // Network/CORS error — the node is unreachable from the browser.
+    return { beeUrl, batchId: '', error: e?.message || 'cannot reach Bee node' };
+  }
 }
 
 export function usePostageBatch() {
   const override = POSTAGE_BATCH_ID;
   const q = useQuery({
-    queryKey: ['cms', 'postageBatch', BEE_URL],
-    enabled: !override,
-    queryFn: () => fetchUsableBatch(BEE_URL),
-    staleTime: 60 * 1000,
-    retry: 1,
+    queryKey: ['cms', 'postageBatch'],
+    queryFn: () => detect(override),
+    refetchInterval: 20 * 1000, // pick up a newly-bought stamp / node-URL change
+    refetchOnWindowFocus: true,
+    staleTime: 10 * 1000,
   });
-  const batchId = override || q.data || '';
+  const d = q.data || {};
+  const beeUrl = d.beeUrl || resolveBeeUrl();
   return {
-    batchId,
-    ready: Boolean(batchId),
-    isChecking: !override && q.isLoading,
-    source: override ? 'env' : batchId ? 'node' : 'none',
-    error: q.error || null,
+    batchId: d.batchId || '',
+    beeUrl,
+    ready: Boolean(d.batchId),
+    isChecking: q.isLoading,
+    error: d.error || (q.error ? q.error.message : null),
   };
 }

@@ -64,8 +64,8 @@ export default function App() {
 
   const { registered, profile, isLoading: shopLoading } = useShopProfile();
   const { handle, isLoading: handleLoading } = useMyHandle();
-  const node = useBeeNode(BEE_URL); // live Bee node health for the sidebar HUD
-  const { ready: uploadsReady, isChecking: batchChecking } = usePostageBatch();
+  const { ready: uploadsReady, isChecking: batchChecking, beeUrl: batchBeeUrl, error: batchError } = usePostageBatch();
+  const node = useBeeNode(batchBeeUrl); // live Bee node health (same node the stamp check uses)
 
   // Unconfigured build — no contract address.
   if (UNCONFIGURED) {
@@ -163,7 +163,11 @@ export default function App() {
 
         <div className="cms-content">
           {!uploadsReady && !batchChecking && (
-            <Banner>No usable postage stamp on your Bee node (<code>{BEE_URL}</code>). Connect a local node and buy a stamp via the Swarm connect button, or set <code>VITE_POSTAGE_BATCH_ID</code>. Saving a profile or listing needs a stamp.</Banner>
+            <Banner>
+              {batchError
+                ? <>Can't reach your Bee node at <code>{batchBeeUrl}</code> ({batchError}). Set the node URL via the Swarm connect button, and allow CORS from this site.</>
+                : <>No usable postage stamp on <code>{batchBeeUrl}</code>. Buy one via the Swarm connect button, or set <code>VITE_POSTAGE_BATCH_ID</code>. Saving a profile or listing needs a stamp.</>}
+            </Banner>
           )}
           {sectionEl}
         </div>
