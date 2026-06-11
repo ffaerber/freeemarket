@@ -50,8 +50,12 @@ export function UtilityBar({ right }) {
   );
 }
 
-/** Sticky top nav. `links` = [{label, href, active}]. `search` toggles the search box. */
-export function Nav({ links = [], search = true, searchPlaceholder = 'Search shops & goods' }) {
+/**
+ * Sticky top nav. `links` = [{label, href, active}]. `search` toggles the search
+ * box; `wallet` toggles the Swarm connect button (off on the homepage/portal —
+ * it's only needed in a shop, where the buyer pays + sends a PSS address).
+ */
+export function Nav({ links = [], search = true, searchPlaceholder = 'Search shops & goods', wallet = true }) {
   return (
     <nav className="fm-nav">
       <div className="fm-rail fm-rail--wide">
@@ -69,7 +73,7 @@ export function Nav({ links = [], search = true, searchPlaceholder = 'Search sho
               <input type="text" placeholder={searchPlaceholder} />
             </label>
           )}
-          <WalletButton />
+          {wallet && <WalletButton />}
         </div>
       </div>
     </nav>
