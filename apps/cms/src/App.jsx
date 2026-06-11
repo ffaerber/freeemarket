@@ -43,13 +43,14 @@ function Wordmark() {
 }
 
 /**
- * Swarm connect wizard (wallet + Bee node + postage stamp). We pass the CMS's
- * own Bee URL as `beeApiUrl` (the package prioritises the prop), so the button,
- * usePostageBatch, and uploads all target the same node — set in one place
- * (the sidebar "Bee node" field).
+ * Swarm connect wizard (wallet + Bee node + postage stamp). NO beeApiUrl prop:
+ * the package resolves `prop ?? localStorage ?? default`, so a prop would
+ * override AND overwrite the URL the user set. Instead the modal + the sidebar
+ * "Bee node" field both write the same localStorage key (see useBeeUrl), which
+ * usePostageBatch + the node-health check read.
  */
-function SwarmConnect({ beeApiUrl }) {
-  return <SwarmConnectButton beeApiUrl={beeApiUrl} />;
+function SwarmConnect() {
+  return <SwarmConnectButton />;
 }
 
 /** Centered connect / unconfigured screen (no console until ready). */
@@ -72,7 +73,7 @@ export default function App() {
   const { handle, isLoading: handleLoading } = useMyHandle();
   const [beeUrl, setBeeUrl] = useBeeUrl(); // single source of truth for the node URL
   const { ready: uploadsReady, isChecking: batchChecking, beeUrl: batchBeeUrl, error: batchError } = usePostageBatch();
-  const node = useBeeNode(beeUrl); // live Bee node health on the configured node
+  const node = useBeeNode(batchBeeUrl); // health on the same node the stamp check uses
 
   // Unconfigured build — no contract address.
   if (UNCONFIGURED) {
@@ -90,7 +91,7 @@ export default function App() {
       <Gate>
         <h2 className="fm-h3" style={{ marginBottom: 8 }}>Open your shop</h2>
         <p className="fm-body" style={{ marginBottom: 22 }}>Connect your wallet, Bee node and a postage stamp — that address is your seller identity.</p>
-        <div style={{ display: 'flex', justifyContent: 'center' }}><SwarmConnect beeApiUrl={beeUrl} /></div>
+        <div style={{ display: 'flex', justifyContent: 'center' }}><SwarmConnect /></div>
       </Gate>
     );
   }
@@ -176,7 +177,7 @@ export default function App() {
           <a href={`${STOREFRONT_BASE}/${handle}`} className="fm-btn fm-btn--ghost fm-btn--sm" target="_blank" rel="noreferrer">
             View storefront <ExternalLink size={13} />
           </a>
-          <SwarmConnect beeApiUrl={beeUrl} />
+          <SwarmConnect />
         </header>
 
         <div className="cms-content">
