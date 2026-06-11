@@ -6,7 +6,7 @@
  *   2. Approve the listing's ERC-20 for the marketplace if allowance < price.
  *   3. `buy(listingId)` → wait for receipt → parse `OrderFunded` for orderId.
  *   4. Collect a shipping address and hand it to the messaging boundary
- *      (`sendEncryptedAddress`) — LIVE via @freemarket/messaging when a Bee node
+ *      (`sendEncryptedAddress`) — LIVE via @freeemarket/messaging when a Bee node
  *      + postage batch + ContactRegistry are configured, else a graceful stub
  *      ({ delivered: false }) so checkout still completes (CLAUDE.md §5).
  *
@@ -24,7 +24,7 @@ import {
 } from 'wagmi';
 import { parseEventLogs } from 'viem';
 import { ShoppingBag, X, Check, Lock, Wallet, Truck, ArrowRight, AlertTriangle } from 'lucide-react';
-import { canShipTo, describeShippingPolicy } from '@freemarket/schema';
+import { canShipTo, describeShippingPolicy } from '@freeemarket/schema';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { erc20Abi } from '../abi/erc20.js';
 import { COUNTRIES, countryName } from './countries.js';
@@ -392,7 +392,7 @@ export default function Checkout({ shop, item, onClose }) {
                     <strong>PSS delivery unconfigured.</strong> The escrow is real, but encrypted-address delivery fell
                     back to a stub (<code>delivered: false</code>) — the seller's ECIES key (ContactRegistry), a full Bee
                     node, or a postage batch is missing (CLAUDE.md §5). Once configured, the address is ECIES-encrypted
-                    and sent over Swarm PSS to the seller's key via <code>@freemarket/messaging</code>.
+                    and sent over Swarm PSS to the seller's key via <code>@freeemarket/messaging</code>.
                   </span>
                 </div>
               </div>

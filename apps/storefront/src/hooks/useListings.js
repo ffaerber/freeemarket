@@ -18,7 +18,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useClient } from 'wagmi';
 import { formatUnits, getAddress } from 'viem';
-import { shippingFromPricing } from '@freemarket/schema';
+import { shippingFromPricing } from '@freeemarket/schema';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { erc20Abi } from '../abi/erc20.js';
 import { fetchListingMetadata } from '../lib/swarm.js';

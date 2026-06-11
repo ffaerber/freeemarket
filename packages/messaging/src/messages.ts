@@ -7,9 +7,9 @@
  *
  * Validators are hand-rolled type guards (no ajv) ON PURPOSE: these payloads are
  * tiny and have no `$ref` reuse, so a heavy JSON-Schema dependency would not pay
- * for itself here. (`@freemarket/schema` uses ajv because its objects are larger
+ * for itself here. (`@freeemarket/schema` uses ajv because its objects are larger
  * and cross-referenced.) The guards follow the same `is*` / `assert*` shape as
- * `@freemarket/schema` so consumers get a consistent API across packages.
+ * `@freeemarket/schema` so consumers get a consistent API across packages.
  */
 
 /** Buyer → seller: the private shipping address for an order. */

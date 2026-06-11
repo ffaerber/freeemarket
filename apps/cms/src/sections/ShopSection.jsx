@@ -3,7 +3,7 @@
  *
  * Flow:
  *   1. Read the current shop (useShopProfile) → prefill the form if registered.
- *   2. Validate the assembled ShopProfile with @freemarket/schema
+ *   2. Validate the assembled ShopProfile with @freeemarket/schema
  *      (assertShopProfile) BEFORE upload.
  *   3. Upload the ShopProfile JSON to Swarm (write path) → get the reference.
  *   4. Call registerShop(refToBytes32(ref)) via wagmi useWriteContract, wait for
@@ -21,7 +21,7 @@ import {
   REGION_PRESETS,
   REGION_LABELS,
   describeShippingPolicy,
-} from '@freemarket/schema';
+} from '@freeemarket/schema';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { handleRegistryAbi } from '../abi/handleRegistry.js';
 import { useShopProfile } from '../hooks/useShopProfile.js';
@@ -63,7 +63,7 @@ function handleError(h) {
   return '';
 }
 
-/** Region presets offered as checkboxes (resolved via @freemarket/schema). */
+/** Region presets offered as checkboxes (resolved via @freeemarket/schema). */
 const REGION_OPTIONS = ['EU', 'EEA', 'US', 'NA'];
 
 /** Empty/default shipping form state (worldwide ⇒ ships everywhere). */

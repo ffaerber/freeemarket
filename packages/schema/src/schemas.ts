@@ -9,7 +9,7 @@ import type { SchemaObject } from 'ajv';
 
 /** White-label theme tokens — every field is a required string. */
 export const shopThemeSchema: SchemaObject = {
-  $id: 'https://freemarket.eth/schema/shop-theme.json',
+  $id: 'https://freeemarket.eth/schema/shop-theme.json',
   type: 'object',
   additionalProperties: false,
   required: [
@@ -45,7 +45,7 @@ export const shopThemeSchema: SchemaObject = {
  * 3166-1 alpha-2 (2 uppercase letters), `regions` are named presets (EU/EEA/…).
  */
 export const shippingPolicySchema: SchemaObject = {
-  $id: 'https://freemarket.eth/schema/shipping-policy.json',
+  $id: 'https://freeemarket.eth/schema/shipping-policy.json',
   type: 'object',
   additionalProperties: false,
   required: ['mode'],
@@ -65,7 +65,7 @@ export const shippingPolicySchema: SchemaObject = {
 
 /** Pointed to by `Shop.metadata` (bytes32 Swarm ref). */
 export const shopProfileSchema: SchemaObject = {
-  $id: 'https://freemarket.eth/schema/shop-profile.json',
+  $id: 'https://freeemarket.eth/schema/shop-profile.json',
   type: 'object',
   additionalProperties: false,
   required: ['version', 'name'],
@@ -79,9 +79,9 @@ export const shopProfileSchema: SchemaObject = {
     banner: { type: 'string' },
     // Optional: the storefront renders a single STATIC theme and ignores this,
     // but profiles that still carry a full theme remain valid.
-    theme: { $ref: 'https://freemarket.eth/schema/shop-theme.json' },
+    theme: { $ref: 'https://freeemarket.eth/schema/shop-theme.json' },
     // Optional advisory shipping-region policy (off-chain; CLAUDE.md §5).
-    shipping: { $ref: 'https://freemarket.eth/schema/shipping-policy.json' },
+    shipping: { $ref: 'https://freeemarket.eth/schema/shipping-policy.json' },
   },
 };
 
@@ -90,7 +90,7 @@ export const shopProfileSchema: SchemaObject = {
  * price are on-chain; this only carries symbol/decimals for rendering.
  */
 export const paymentHintSchema: SchemaObject = {
-  $id: 'https://freemarket.eth/schema/payment-hint.json',
+  $id: 'https://freeemarket.eth/schema/payment-hint.json',
   type: 'object',
   additionalProperties: false,
   required: ['token'],
@@ -114,7 +114,7 @@ export const paymentHintSchema: SchemaObject = {
  * treat the on-chain price as authoritative (see `shippingFromPricing`).
  */
 export const pricingBreakdownSchema: SchemaObject = {
-  $id: 'https://freemarket.eth/schema/pricing-breakdown.json',
+  $id: 'https://freeemarket.eth/schema/pricing-breakdown.json',
   type: 'object',
   additionalProperties: false,
   properties: {
@@ -126,7 +126,7 @@ export const pricingBreakdownSchema: SchemaObject = {
 
 /** Pointed to by `Listing.metadata` (bytes32 Swarm ref). Price is on-chain. */
 export const listingMetadataSchema: SchemaObject = {
-  $id: 'https://freemarket.eth/schema/listing-metadata.json',
+  $id: 'https://freeemarket.eth/schema/listing-metadata.json',
   type: 'object',
   additionalProperties: false,
   required: ['version', 'title', 'images'],
@@ -142,12 +142,12 @@ export const listingMetadataSchema: SchemaObject = {
       additionalProperties: { type: 'string' },
     },
     // Display hint only; on-chain token/price remain authoritative.
-    payment: { $ref: 'https://freemarket.eth/schema/payment-hint.json' },
+    payment: { $ref: 'https://freeemarket.eth/schema/payment-hint.json' },
     // DISPLAY-ONLY breakdown of the ON-CHAIN price into item + shipping. The
     // on-chain price already INCLUDES shipping and stays authoritative; this
     // only itemizes it. FLAT per variant (not per-region — the contract can't
     // see the destination country, CLAUDE.md §5). See `pricingBreakdownSchema`.
-    pricing: { $ref: 'https://freemarket.eth/schema/pricing-breakdown.json' },
+    pricing: { $ref: 'https://freeemarket.eth/schema/pricing-breakdown.json' },
     // Product variant grouping (OFF-CHAIN, optional, additive in v1). Each
     // variant stays its own on-chain Listing; these only drive how the
     // storefront/CMS group + label variants under one card. See ./index.ts.

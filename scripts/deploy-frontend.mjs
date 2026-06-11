@@ -51,7 +51,7 @@
  *                            holds it controls future site updates for this shop,
  *                            so back it up. NEVER committed or logged.
  *                            (Alias: FEED_SIGNER.)
- *     FEED_TOPIC             Feed topic label (default "freemarket-storefront").
+ *     FEED_TOPIC             Feed topic label (default "freeemarket-storefront").
  *                            Same owner + topic = same stable feed/ENS address,
  *                            so keep it constant across redeploys of one shop.
  *
@@ -411,7 +411,7 @@ async function main() {
   const beeUrl = env('BEE_URL', 'http://localhost:1633');
   const batchId = env('POSTAGE_BATCH_ID');
   const feedKey = env('FEED_PRIVATE_KEY') || env('FEED_SIGNER');
-  const feedTopic = env('FEED_TOPIC', 'freemarket-storefront');
+  const feedTopic = env('FEED_TOPIC', 'freeemarket-storefront');
   const ensName = env('ENS_NAME');
 
   // --- Required-env validation (clear, actionable errors) ---

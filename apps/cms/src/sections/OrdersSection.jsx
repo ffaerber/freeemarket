@@ -4,10 +4,10 @@
  * Reads OrderFunded logs (seller == me) → current orders(orderId) state, with
  * token-decimal-formatted amounts (never hardcoded). Per order:
  *   - "Decrypt shipping address" → LIVE PSS receive + ECIES decrypt via
- *     @freemarket/messaging (src/messaging), using the merchant's locally
+ *     @freeemarket/messaging (src/messaging), using the merchant's locally
  *     unlocked private key; falls back to a stub when unconfigured.
  *   - "Send tracking code" → LIVE seller→buyer shipment update via
- *     @freemarket/messaging (encrypted to the buyer's ContactRegistry key,
+ *     @freeemarket/messaging (encrypted to the buyer's ContactRegistry key,
  *     signed by the seller's wallet); stub fallback when unconfigured.
  *   - claimAfterTimeout(orderId): shown when Funded AND the autoReleasePeriod
  *     has elapsed since fundedAt.

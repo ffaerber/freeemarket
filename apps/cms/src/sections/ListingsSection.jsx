@@ -6,7 +6,7 @@
  *      acceptedTokens + decimals/symbol). Decimals are NEVER hardcoded.
  *   2. Upload listing images to Swarm (write path) → collect refs.
  *   3. Assemble ListingMetadata (incl. the `payment` hint {token, symbol,
- *      decimals}) → validate with @freemarket/schema → upload JSON to Swarm.
+ *      decimals}) → validate with @freeemarket/schema → upload JSON to Swarm.
  *   4. createListing(token, parseUnits(price, decimals), stockCount, refToBytes32(metaRef)).
  *      `stock` is a unit COUNT (a plain integer) — NEVER parseUnits'd.
  *
@@ -18,7 +18,7 @@ import React, { useState } from 'react';
 import { PlusCircle, UploadCloud, X, Power, RefreshCw } from 'lucide-react';
 import { useWriteContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
-import { assertListingMetadata, SchemaValidationError } from '@freemarket/schema';
+import { assertListingMetadata, SchemaValidationError } from '@freeemarket/schema';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { useMyListings } from '../hooks/useMyListings.js';
 import { useShopProfile } from '../hooks/useShopProfile.js';

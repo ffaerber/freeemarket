@@ -1,5 +1,5 @@
 {
-  "name": "@freemarket/scripts",
+  "name": "@freeemarket/scripts",
   "version": "0.1.0",
   "private": true,
   "description": "FreeeMarket ops scripts — per-shop Swarm + ENS deploy pipeline (CLAUDE.md §8).",

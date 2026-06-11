@@ -1,5 +1,5 @@
 /**
- * @freemarket/messaging — bidirectional encrypted messaging over Swarm PSS.
+ * @freeemarket/messaging — bidirectional encrypted messaging over Swarm PSS.
  *
  * Implements the CLAUDE.md §5 private-message flow in BOTH directions, on the
  * SAME machinery (ECIES encrypt → signed envelope → PSS + feed delivery):

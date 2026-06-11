@@ -1,6 +1,6 @@
 /**
  * Encrypted shipping-address RECEIVE/DECRYPT + tracking-code SEND — LIVE, backed
- * by `@freemarket/messaging`, with a graceful STUB fallback when unconfigured.
+ * by `@freeemarket/messaging`, with a graceful STUB fallback when unconfigured.
  *
  * The merchant-side counterpart to the storefront's `sendEncryptedAddress(...)`.
  * The buyer encrypts + sends their address over Swarm PSS after `buy(...)` funds
@@ -34,12 +34,12 @@ import {
   BeeTransport,
   receiveShippingAddress,
   sendShipmentUpdate,
-} from '@freemarket/messaging';
+} from '@freeemarket/messaging';
 import { resolvePublicKey } from '../lib/contactRegistry.js';
 import { CONTACT_REGISTRY } from '../config.js';
 
 /**
- * Build a `SignDigest` for `@freemarket/messaging` from a wagmi/viem wallet
+ * Build a `SignDigest` for `@freeemarket/messaging` from a wagmi/viem wallet
  * client (the SELLER's wallet). The library signs the envelope digest as a raw
  * EIP-191 personal message; viem's `signMessage({ message: { raw } })` matches.
  *

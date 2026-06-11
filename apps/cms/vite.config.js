@@ -23,7 +23,7 @@ export default defineConfig({
     react(),
   ],
   resolve: {
-    // The linked `@freemarket/messaging` package keeps its OWN node_modules (for
+    // The linked `@freeemarket/messaging` package keeps its OWN node_modules (for
     // its standalone test suite), so without deduping, Vite would resolve bee-js
     // and its transitive deps (e.g. js-sha3) from that nested tree — where the
     // node-polyfill shims aren't reachable, breaking the build. Deduping forces

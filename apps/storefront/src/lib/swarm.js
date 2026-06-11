@@ -6,11 +6,11 @@
  * `listings(id).metadata`). Images are also Swarm references. We read them
  * through a Bee node / public gateway base URL (see VITE_BEE_URL).
  *
- * Validation is delegated to the shared @freemarket/schema runtime guards so
+ * Validation is delegated to the shared @freeemarket/schema runtime guards so
  * the storefront and CMS agree on the exact shape (CLAUDE.md §6).
  */
 import { Bee } from '@ethersphere/bee-js';
-import { isShopProfile, isListingMetadata } from '@freemarket/schema';
+import { isShopProfile, isListingMetadata } from '@freeemarket/schema';
 
 /**
  * Normalize a Swarm reference. On-chain refs are `bytes32` (0x-prefixed, 64
@@ -69,7 +69,7 @@ export async function fetchSwarmJson(beeUrl, ref) {
 
 /**
  * Fetch a ShopProfile from Swarm and validate it against the shared schema.
- * @returns {Promise<import('@freemarket/schema').ShopProfile | null>}
+ * @returns {Promise<import('@freeemarket/schema').ShopProfile | null>}
  */
 export async function fetchShopProfile(beeUrl, ref) {
   const json = await fetchSwarmJson(beeUrl, ref);
@@ -83,7 +83,7 @@ export async function fetchShopProfile(beeUrl, ref) {
 
 /**
  * Fetch a ListingMetadata from Swarm and validate it against the shared schema.
- * @returns {Promise<import('@freemarket/schema').ListingMetadata | null>}
+ * @returns {Promise<import('@freeemarket/schema').ListingMetadata | null>}
  */
 export async function fetchListingMetadata(beeUrl, ref) {
   const json = await fetchSwarmJson(beeUrl, ref);

@@ -73,7 +73,7 @@ the [script header](../scripts/deploy-frontend.mjs).
 | `BEE_URL` | `http://localhost:1633` | Writeable **full** Bee node base URL. |
 | `POSTAGE_BATCH_ID` | — (**required**) | Funded postage batch for the upload + feed. |
 | `FEED_PRIVATE_KEY` (or `FEED_SIGNER`) | — (**required**) | Swarm feed owner key. Runtime-only; never commit/log. |
-| `FEED_TOPIC` | `freemarket-storefront` | Feed topic label. Keep constant across redeploys of one shop (same owner+topic = same stable address). |
+| `FEED_TOPIC` | `freeemarket-storefront` | Feed topic label. Keep constant across redeploys of one shop (same owner+topic = same stable address). |
 
 **ENS (step 4):**
 

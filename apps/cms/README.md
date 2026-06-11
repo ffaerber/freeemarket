@@ -3,9 +3,9 @@
 Shared merchant back-office — **one app for all shops**. The merchant connects
 their own wallet and that address *is* their seller address (no per-shop build,
 unlike the storefront). It talks only to the Marketplace contract on Gnosis +
-Swarm + live PSS (via `@freemarket/messaging`). Same stack as the storefront: Vite + React + wagmi v2 +
+Swarm + live PSS (via `@freeemarket/messaging`). Same stack as the storefront: Vite + React + wagmi v2 +
 viem + @tanstack/react-query + @ethersphere/bee-js + lucide-react +
-@freemarket/schema.
+@freeemarket/schema.
 
 See [CLAUDE.md §2 and §9](../../CLAUDE.md).
 
@@ -67,7 +67,7 @@ placed in env (it lives only in a local keystore; see §5).
   - **Unlock decryption key** — paste your ECIES private key (runtime-only,
     local; see the note above) to enable address decryption.
   - **Decrypt shipping address** — **live** PSS receive + ECIES decrypt via
-    `@freemarket/messaging`: reads the buyer→seller topic, verifies the signed
+    `@freeemarket/messaging`: reads the buyer→seller topic, verifies the signed
     envelope's signer == this order's buyer, decrypts with your unlocked key.
     Graceful stub when the key / a full Bee node is missing.
   - **Send tracking code** — **live** seller→buyer shipment update: resolve the
@@ -91,7 +91,7 @@ placed in env (it lives only in a local keystore; see §5).
       `receiveDecryptedAddress` (decrypt the buyer's address with your unlocked
       ECIES key) and `sendShipmentUpdateFromCms` (send a tracking code back to
       the buyer, encrypted to their ContactRegistry key + signed by your wallet),
-      both delegating to `@freemarket/messaging`. `BeeTransport` is constructed
+      both delegating to `@freeemarket/messaging`. `BeeTransport` is constructed
       only behind the config gate; private key unlocked at runtime, never
       committed/env'd. Graceful stub (`{ stub: true }`) when unconfigured. Real
       PSS needs a full Bee node on both ends.
