@@ -14,7 +14,7 @@
  * is unconfigured or no handles are live.
  */
 import { useQuery } from '@tanstack/react-query';
-import { useClient } from 'wagmi';
+import { usePublicClient } from 'wagmi';
 import { getAddress, zeroAddress } from 'viem';
 import { handleRegistryAbi } from '../abi/handleRegistry.js';
 import { marketplaceAbi } from '../abi/marketplace.js';
@@ -85,7 +85,7 @@ async function loadShops(client) {
 }
 
 export function useShops() {
-  const client = useClient({ chainId: GNOSIS_CHAIN_ID });
+  const client = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
 
   const query = useQuery({
     queryKey: ['shops', HANDLE_REGISTRY, MARKETPLACE_ADDRESS, BEE_URL],
