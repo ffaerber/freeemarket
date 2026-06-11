@@ -21,8 +21,9 @@ import Onboarding from './sections/Onboarding.jsx';
 import { useShopProfile } from './hooks/useShopProfile.js';
 import { useMyHandle } from './hooks/useMyHandle.js';
 import { usePostageBatch } from './hooks/usePostageBatch.js';
+import { useBeeUrl } from './hooks/useBeeUrl.js';
 import { Banner } from './ui.jsx';
-import { UNCONFIGURED, BEE_URL } from './config.js';
+import { UNCONFIGURED } from './config.js';
 
 const STOREFRONT_BASE = 'https://freeemarket.eth.limo';
 
@@ -42,13 +43,13 @@ function Wordmark() {
 }
 
 /**
- * Swarm connect wizard (wallet + Bee node + postage stamp). No hardcoded
- * beeApiUrl: the package uses (and persists) the node URL the user sets in its
- * modal — a passed prop would OVERRIDE that. usePostageBatch reads the same
- * persisted URL, so the button and uploads stay on the same node.
+ * Swarm connect wizard (wallet + Bee node + postage stamp). We pass the CMS's
+ * own Bee URL as `beeApiUrl` (the package prioritises the prop), so the button,
+ * usePostageBatch, and uploads all target the same node — set in one place
+ * (the sidebar "Bee node" field).
  */
-function SwarmConnect() {
-  return <SwarmConnectButton />;
+function SwarmConnect({ beeApiUrl }) {
+  return <SwarmConnectButton beeApiUrl={beeApiUrl} />;
 }
 
 /** Centered connect / unconfigured screen (no console until ready). */
@@ -69,8 +70,9 @@ export default function App() {
 
   const { registered, profile, isLoading: shopLoading } = useShopProfile();
   const { handle, isLoading: handleLoading } = useMyHandle();
+  const [beeUrl, setBeeUrl] = useBeeUrl(); // single source of truth for the node URL
   const { ready: uploadsReady, isChecking: batchChecking, beeUrl: batchBeeUrl, error: batchError } = usePostageBatch();
-  const node = useBeeNode(batchBeeUrl); // live Bee node health (same node the stamp check uses)
+  const node = useBeeNode(beeUrl); // live Bee node health on the configured node
 
   // Unconfigured build — no contract address.
   if (UNCONFIGURED) {
@@ -88,7 +90,7 @@ export default function App() {
       <Gate>
         <h2 className="fm-h3" style={{ marginBottom: 8 }}>Open your shop</h2>
         <p className="fm-body" style={{ marginBottom: 22 }}>Connect your wallet, Bee node and a postage stamp — that address is your seller identity.</p>
-        <div style={{ display: 'flex', justifyContent: 'center' }}><SwarmConnect /></div>
+        <div style={{ display: 'flex', justifyContent: 'center' }}><SwarmConnect beeApiUrl={beeUrl} /></div>
       </Gate>
     );
   }
@@ -139,6 +141,17 @@ export default function App() {
           ))}
         </nav>
         <div className="side-foot">
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--fg-soft)', marginBottom: 6 }}>bee node</div>
+            <input
+              className="fm-input fm-input--mono"
+              defaultValue={beeUrl}
+              onBlur={(e) => setBeeUrl(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+              placeholder="http://localhost:1633"
+              style={{ fontSize: 11, padding: '8px 10px' }}
+            />
+          </div>
           <div className="fm-hud" style={{ padding: '12px 14px', fontSize: 11 }}>
             <div className="fm-hud-row" style={{ padding: '4px 0' }}>
               <span className="fm-hud-key">node</span>
@@ -163,7 +176,7 @@ export default function App() {
           <a href={`${STOREFRONT_BASE}/${handle}`} className="fm-btn fm-btn--ghost fm-btn--sm" target="_blank" rel="noreferrer">
             View storefront <ExternalLink size={13} />
           </a>
-          <SwarmConnect />
+          <SwarmConnect beeApiUrl={beeUrl} />
         </header>
 
         <div className="cms-content">

@@ -14,25 +14,11 @@
  * Consumers should upload to the returned `beeUrl` (the node that holds the stamp).
  */
 import { useQuery } from '@tanstack/react-query';
-import { BEE_URL, POSTAGE_BATCH_ID } from '../config.js';
-
-/** localStorage key the swarm-connect package persists its Bee API URL under. */
-const SWARM_CONNECT_BEE_KEY = 'swarm-connect:bee-api-url';
-
-function resolveBeeUrl() {
-  if (typeof window !== 'undefined') {
-    try {
-      const v = window.localStorage.getItem(SWARM_CONNECT_BEE_KEY);
-      if (v && v.trim()) return v.trim();
-    } catch {
-      /* ignore */
-    }
-  }
-  return BEE_URL;
-}
+import { POSTAGE_BATCH_ID } from '../config.js';
+import { readBeeUrl } from './useBeeUrl.js';
 
 async function detect(override) {
-  const beeUrl = resolveBeeUrl();
+  const beeUrl = readBeeUrl();
   if (override) return { beeUrl, batchId: override, error: null };
   const base = beeUrl.replace(/\/+$/, '');
   try {
@@ -57,7 +43,7 @@ export function usePostageBatch() {
     staleTime: 10 * 1000,
   });
   const d = q.data || {};
-  const beeUrl = d.beeUrl || resolveBeeUrl();
+  const beeUrl = d.beeUrl || readBeeUrl();
   return {
     batchId: d.batchId || '',
     beeUrl,
