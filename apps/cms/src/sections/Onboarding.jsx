@@ -19,14 +19,13 @@ import { useShopProfile } from '../hooks/useShopProfile.js';
 import { useMyHandle } from '../hooks/useMyHandle.js';
 import { makeBee, uploadJson } from '../lib/swarmWrite.js';
 import { refToBytes32 } from '../lib/swarm.js';
+import { usePostageBatch } from '../hooks/usePostageBatch.js';
 import {
   MARKETPLACE_ADDRESS,
   HANDLE_REGISTRY_ADDRESS,
   GNOSIS_CHAIN_ID,
   EXPLORER_URL,
   BEE_URL,
-  POSTAGE_BATCH_ID,
-  UPLOADS_DISABLED,
 } from '../config.js';
 import { Card, Field, Input, Button, SectionHeader, Banner, ErrorNote } from '../ui.jsx';
 
@@ -46,6 +45,7 @@ export default function Onboarding({ onDone }) {
   const { writeContractAsync } = useWriteContract();
   const { registered, refetch: refetchShop } = useShopProfile();
   const { handle: currentHandle, refetch: refetchHandle } = useMyHandle();
+  const { batchId, ready: uploadsReady, isChecking: batchChecking } = usePostageBatch();
 
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -61,7 +61,7 @@ export default function Onboarding({ onDone }) {
 
   const registryMissing = !HANDLE_REGISTRY_ADDRESS;
   const validationMsg = name ? handleError(name) : '';
-  const canSubmit = !busy && Boolean(name) && !validationMsg && !UPLOADS_DISABLED && !registryMissing;
+  const canSubmit = !busy && Boolean(name) && !validationMsg && uploadsReady && !registryMissing;
 
   async function send(label, args) {
     setStepMsg(label);
@@ -94,7 +94,7 @@ export default function Onboarding({ onDone }) {
         const profile = assertShopProfile({ version: 1, name: handle });
         setStepMsg('Uploading your shop profile to Swarm…');
         const bee = makeBee(BEE_URL);
-        const ref = await uploadJson(bee, POSTAGE_BATCH_ID, profile);
+        const ref = await uploadJson(bee, batchId, profile);
         await send('Registering your shop on-chain…', {
           abi: marketplaceAbi,
           address: MARKETPLACE_ADDRESS,
@@ -124,10 +124,11 @@ export default function Onboarding({ onDone }) {
       {registryMissing && (
         <Banner tone="error">Handle registry not configured (<code>VITE_HANDLE_REGISTRY</code>).</Banner>
       )}
-      {!registryMissing && UPLOADS_DISABLED && (
+      {!registryMissing && !uploadsReady && (
         <Banner>
-          <strong>Uploads disabled.</strong> Registering a shop uploads its profile JSON to Swarm, which needs a
-          postage batch (<code>VITE_POSTAGE_BATCH_ID</code>) on a writeable Bee node. See CLAUDE.md §5.
+          {batchChecking
+            ? 'Checking your Bee node for a postage stamp…'
+            : <><strong>No postage stamp.</strong> Registering a shop uploads its profile JSON to Swarm. Connect your local Bee node and buy a postage stamp (use the Swarm connect button), or set <code>VITE_POSTAGE_BATCH_ID</code>. See CLAUDE.md §5.</>}
         </Banner>
       )}
 

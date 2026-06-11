@@ -25,13 +25,12 @@ import { useShopProfile } from '../hooks/useShopProfile.js';
 import { useAcceptedToken } from '../hooks/useAcceptedToken.js';
 import { makeBee, uploadJson, uploadFile } from '../lib/swarmWrite.js';
 import { refToBytes32, swarmImageUrl } from '../lib/swarm.js';
+import { usePostageBatch } from '../hooks/usePostageBatch.js';
 import {
   MARKETPLACE_ADDRESS,
   GNOSIS_CHAIN_ID,
   EXPLORER_URL,
   BEE_URL,
-  POSTAGE_BATCH_ID,
-  UPLOADS_DISABLED,
   TOKEN_OPTIONS,
 } from '../config.js';
 import {
@@ -108,6 +107,7 @@ function previewTotal(itemRaw, shippingRaw, decimals, symbol) {
 }
 
 export default function ListingsSection() {
+  const { batchId, ready: uploadsReady, isChecking: batchChecking } = usePostageBatch();
   const { registered } = useShopProfile();
   const { listings, isLoading, error, refetch } = useMyListings();
 
@@ -122,12 +122,12 @@ export default function ListingsSection() {
       {!registered && (
         <Banner>Register your shop first (Shop tab) — createListing reverts without a registered shop.</Banner>
       )}
-      {UPLOADS_DISABLED && (
-        <Banner>No Swarm postage batch (VITE_POSTAGE_BATCH_ID) — image + metadata uploads are disabled. See CLAUDE.md §5.</Banner>
+      {!uploadsReady && (
+        <Banner>{batchChecking ? 'Checking your Bee node for a postage stamp…' : 'No usable postage stamp on your Bee node — connect a local node and buy a stamp, or set VITE_POSTAGE_BATCH_ID. Image + metadata uploads are disabled until then. See CLAUDE.md §5.'}</Banner>
       )}
       {error && <Banner tone="error">Couldn't load listings: {error.shortMessage || error.message}</Banner>}
 
-      <CreateListing disabled={!registered || UPLOADS_DISABLED} onCreated={refetch} myListings={listings} />
+      <CreateListing disabled={!registered || !uploadsReady} onCreated={refetch} myListings={listings} />
 
       <div style={{ marginTop: 24 }}>
         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: 'var(--muted)' }}>
@@ -149,6 +149,7 @@ export default function ListingsSection() {
 
 /** The create-listing form. */
 function CreateListing({ disabled, onCreated, myListings = [] }) {
+  const { batchId, ready: uploadsReady } = usePostageBatch();
   const publicClient = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
   const { writeContractAsync } = useWriteContract();
   const tokenCheck = useAcceptedToken();
@@ -184,7 +185,7 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
     setActionError(null);
     try {
       const bee = makeBee(BEE_URL);
-      const ref = await uploadFile(bee, POSTAGE_BATCH_ID, file);
+      const ref = await uploadFile(bee, batchId, file);
       setImages((xs) => [...xs, ref]);
     } catch (err) {
       setActionError(err);
@@ -241,7 +242,7 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
 
       // Upload metadata JSON.
       const bee = makeBee(BEE_URL);
-      const metaRef = await uploadJson(bee, POSTAGE_BATCH_ID, metaObj);
+      const metaRef = await uploadJson(bee, batchId, metaObj);
 
       // createListing(token, price, stock, metadata).
       const hash = await writeContractAsync({
@@ -380,7 +381,7 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
       </Field>
 
       <Field label="Images" hint="Uploaded to Swarm; references stored in the listing metadata.">
-        <FilePickerButton disabled={UPLOADS_DISABLED} onPick={addImage} />
+        <FilePickerButton disabled={!uploadsReady} onPick={addImage} />
         {images.length > 0 && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
             {images.map((ref) => (
@@ -413,6 +414,7 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
 
 /** One existing listing with edit (price/metadata via re-upload) + active toggle. */
 function ListingRow({ listing, onChanged }) {
+  const { batchId, ready: uploadsReady } = usePostageBatch();
   const publicClient = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
   const { writeContractAsync } = useWriteContract();
 
@@ -489,7 +491,7 @@ function ListingRow({ listing, onChanged }) {
       const metaObj = assertListingMetadata(meta);
 
       const bee = makeBee(BEE_URL);
-      const metaRef = await uploadJson(bee, POSTAGE_BATCH_ID, metaObj);
+      const metaRef = await uploadJson(bee, batchId, metaObj);
 
       const hash = await writeContractAsync({
         abi: marketplaceAbi,
@@ -548,14 +550,14 @@ function ListingRow({ listing, onChanged }) {
         <GhostButton onClick={() => setEditing((v) => !v)} disabled={busy} style={{ padding: '8px 12px', fontSize: 13 }}>
           {editing ? 'Cancel' : 'Edit'}
         </GhostButton>
-        <GhostButton onClick={toggleActive} disabled={busy || UPLOADS_DISABLED} style={{ padding: '8px 12px', fontSize: 13 }}>
+        <GhostButton onClick={toggleActive} disabled={busy || !uploadsReady} style={{ padding: '8px 12px', fontSize: 13 }}>
           <Power size={14} /> {listing.active ? 'Deactivate' : 'Activate'}
         </GhostButton>
       </div>
 
       {editing && (
         <div style={{ marginTop: 14, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-          {UPLOADS_DISABLED && <Banner>Saving edits re-uploads metadata to Swarm — needs a postage batch.</Banner>}
+          {!uploadsReady && <Banner>Saving edits re-uploads metadata to Swarm — needs a postage batch.</Banner>}
           <Field label="Title"><Input value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
           <Field label="Description"><Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
@@ -586,7 +588,7 @@ function ListingRow({ listing, onChanged }) {
               </div>
             ) : null;
           })()}
-          <Button onClick={saveEdit} disabled={busy || UPLOADS_DISABLED || !title.trim() || !itemPrice.trim()}>
+          <Button onClick={saveEdit} disabled={busy || !uploadsReady || !title.trim() || !itemPrice.trim()}>
             {busy ? 'Saving…' : 'Save changes'}
           </Button>
         </div>

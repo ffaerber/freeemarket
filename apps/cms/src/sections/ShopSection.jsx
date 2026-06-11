@@ -28,15 +28,13 @@ import { useShopProfile } from '../hooks/useShopProfile.js';
 import { useMyHandle } from '../hooks/useMyHandle.js';
 import { makeBee, uploadJson, uploadFile } from '../lib/swarmWrite.js';
 import { refToBytes32, swarmImageUrl } from '../lib/swarm.js';
+import { usePostageBatch } from '../hooks/usePostageBatch.js';
 import {
   MARKETPLACE_ADDRESS,
   HANDLE_REGISTRY_ADDRESS,
   GNOSIS_CHAIN_ID,
   EXPLORER_URL,
   BEE_URL,
-  POSTAGE_BATCH_ID,
-  UPLOADS_DISABLED,
-  ADMIN_THEME,
 } from '../config.js';
 import {
   Card,
@@ -77,6 +75,7 @@ const SHIPPING_MODES = [
 
 export default function ShopSection() {
   const { registered, profile, isLoading, error: readError, refetch } = useShopProfile();
+  const { batchId, ready: uploadsReady, isChecking: batchChecking } = usePostageBatch();
   const publicClient = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
   const { writeContractAsync } = useWriteContract();
 
@@ -150,7 +149,7 @@ export default function ShopSection() {
     setActionError(null);
     try {
       const bee = makeBee(BEE_URL);
-      const ref = await uploadFile(bee, POSTAGE_BATCH_ID, file);
+      const ref = await uploadFile(bee, batchId, file);
       set(key, ref);
     } catch (err) {
       setActionError(err);
@@ -193,7 +192,7 @@ export default function ShopSection() {
 
       // 2. Upload the profile JSON to Swarm.
       const bee = makeBee(BEE_URL);
-      const ref = await uploadJson(bee, POSTAGE_BATCH_ID, profileObj);
+      const ref = await uploadJson(bee, batchId, profileObj);
 
       // 3. registerShop(bytes32 metadata).
       const hash = await writeContractAsync({
@@ -226,11 +225,11 @@ export default function ShopSection() {
         right={registered ? <Pill tone="accent2">Registered</Pill> : <Pill>Not registered</Pill>}
       />
 
-      {UPLOADS_DISABLED && (
+      {!uploadsReady && (
         <Banner>
-          No Swarm postage batch configured (VITE_POSTAGE_BATCH_ID). Saving requires
-          uploading the profile JSON to Swarm, which needs a stamp — uploads are
-          disabled until one is set. See CLAUDE.md §5.
+          {batchChecking
+            ? 'Checking your Bee node for a postage stamp…'
+            : 'No usable postage stamp on your Bee node. Connect a local node and buy a stamp (Swarm connect button), or set VITE_POSTAGE_BATCH_ID. Saving uploads the profile JSON to Swarm. See CLAUDE.md §5.'}
         </Banner>
       )}
       {readError && <Banner tone="error">Couldn't read current shop: {readError.shortMessage || readError.message}</Banner>}
@@ -252,15 +251,15 @@ export default function ShopSection() {
 
           <Field label="Logo" hint="Paste a Swarm reference or upload an image to store one.">
             <Input value={form.logo} onChange={(e) => set('logo', e.target.value)} placeholder="Swarm reference (64 hex)" />
-            <ImageUpload disabled={UPLOADS_DISABLED} onPick={(f) => uploadImage('logo', f)} preview={swarmImageUrl(BEE_URL, form.logo)} />
+            <ImageUpload disabled={!uploadsReady} onPick={(f) => uploadImage('logo', f)} preview={swarmImageUrl(BEE_URL, form.logo)} />
           </Field>
           <Field label="Banner" hint="Paste a Swarm reference or upload an image to store one.">
             <Input value={form.banner} onChange={(e) => set('banner', e.target.value)} placeholder="Swarm reference (64 hex)" />
-            <ImageUpload disabled={UPLOADS_DISABLED} onPick={(f) => uploadImage('banner', f)} preview={swarmImageUrl(BEE_URL, form.banner)} />
+            <ImageUpload disabled={!uploadsReady} onPick={(f) => uploadImage('banner', f)} preview={swarmImageUrl(BEE_URL, form.banner)} />
           </Field>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
-            <Button onClick={onSubmit} disabled={busy || UPLOADS_DISABLED || !form.name.trim()}>
+            <Button onClick={onSubmit} disabled={busy || !uploadsReady || !form.name.trim()}>
               <Store size={16} /> {busy ? 'Saving…' : registered ? 'Update shop' : 'Register shop'}
             </Button>
             {done && (
