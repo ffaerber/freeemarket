@@ -179,7 +179,7 @@ function OrderRow({ order, autoReleasePeriod, isArbiter, sellerAddress, privateK
   const publicClient = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
   const { data: walletClient } = useWalletClient({ chainId: GNOSIS_CHAIN_ID });
   const { writeContractAsync } = useWriteContract();
-  const { batchId } = usePostageBatch();
+  const { batchId, beeUrl } = usePostageBatch();
 
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
@@ -233,7 +233,7 @@ function OrderRow({ order, autoReleasePeriod, isArbiter, sellerAddress, privateK
         seller: sellerAddress,
         buyer: order.buyer,
         recipientPrivateKey: privateKey?.trim() || undefined,
-        beeUrl: BEE_URL,
+        beeUrl,
       });
       setDecryptResult(result);
     } catch (err) {
@@ -256,7 +256,7 @@ function OrderRow({ order, autoReleasePeriod, isArbiter, sellerAddress, privateK
         update: { carrier, trackingCode, note },
         publicClient,
         signMessage,
-        beeUrl: BEE_URL,
+        beeUrl,
         postageBatchId: batchId,
       });
       setSendResult(result);

@@ -45,7 +45,7 @@ export default function Onboarding({ onDone }) {
   const { writeContractAsync } = useWriteContract();
   const { registered, refetch: refetchShop } = useShopProfile();
   const { handle: currentHandle, refetch: refetchHandle } = useMyHandle();
-  const { batchId, ready: uploadsReady, isChecking: batchChecking } = usePostageBatch();
+  const { batchId, beeUrl, ready: uploadsReady, isChecking: batchChecking, error: batchError } = usePostageBatch();
 
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -93,7 +93,7 @@ export default function Onboarding({ onDone }) {
       if (!registered) {
         const profile = assertShopProfile({ version: 1, name: handle });
         setStepMsg('Uploading your shop profile to Swarm…');
-        const bee = makeBee(BEE_URL);
+        const bee = makeBee(beeUrl);
         const ref = await uploadJson(bee, batchId, profile);
         await send('Registering your shop on-chain…', {
           abi: marketplaceAbi,
@@ -126,9 +126,13 @@ export default function Onboarding({ onDone }) {
       )}
       {!registryMissing && !uploadsReady && (
         <Banner>
-          {batchChecking
-            ? 'Checking your Bee node for a postage stamp…'
-            : <><strong>No postage stamp.</strong> Registering a shop uploads its profile JSON to Swarm. Connect your local Bee node and buy a postage stamp (use the Swarm connect button), or set <code>VITE_POSTAGE_BATCH_ID</code>. See CLAUDE.md §5.</>}
+          {batchChecking ? (
+            <>Checking <code>{beeUrl}</code> for a postage stamp…</>
+          ) : batchError ? (
+            <><strong>Can't reach your Bee node</strong> at <code>{beeUrl}</code> ({batchError}). Set the node URL in the Swarm connect button, and make sure the node allows CORS from this site.</>
+          ) : (
+            <><strong>No usable postage stamp</strong> on <code>{beeUrl}</code>. Buy one via the Swarm connect button (or the Bee API), or set <code>VITE_POSTAGE_BATCH_ID</code>. Registering uploads your profile JSON to Swarm. See CLAUDE.md §5.</>
+          )}
         </Banner>
       )}
 

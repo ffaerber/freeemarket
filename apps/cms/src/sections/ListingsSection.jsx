@@ -107,7 +107,7 @@ function previewTotal(itemRaw, shippingRaw, decimals, symbol) {
 }
 
 export default function ListingsSection() {
-  const { batchId, ready: uploadsReady, isChecking: batchChecking } = usePostageBatch();
+  const { beeUrl, ready: uploadsReady, isChecking: batchChecking, error: batchError } = usePostageBatch();
   const { registered } = useShopProfile();
   const { listings, isLoading, error, refetch } = useMyListings();
 
@@ -123,7 +123,13 @@ export default function ListingsSection() {
         <Banner>Register your shop first (Shop tab) — createListing reverts without a registered shop.</Banner>
       )}
       {!uploadsReady && (
-        <Banner>{batchChecking ? 'Checking your Bee node for a postage stamp…' : 'No usable postage stamp on your Bee node — connect a local node and buy a stamp, or set VITE_POSTAGE_BATCH_ID. Image + metadata uploads are disabled until then. See CLAUDE.md §5.'}</Banner>
+        <Banner>
+          {batchChecking
+            ? `Checking ${beeUrl} for a postage stamp…`
+            : batchError
+              ? `Can't reach your Bee node at ${beeUrl} (${batchError}). Set the node URL via the Swarm connect button and allow CORS from this site.`
+              : `No usable postage stamp on ${beeUrl} — buy one via the Swarm connect button, or set VITE_POSTAGE_BATCH_ID. Image + metadata uploads are disabled until then.`}
+        </Banner>
       )}
       {error && <Banner tone="error">Couldn't load listings: {error.shortMessage || error.message}</Banner>}
 
@@ -149,7 +155,7 @@ export default function ListingsSection() {
 
 /** The create-listing form. */
 function CreateListing({ disabled, onCreated, myListings = [] }) {
-  const { batchId, ready: uploadsReady } = usePostageBatch();
+  const { batchId, beeUrl, ready: uploadsReady } = usePostageBatch();
   const publicClient = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
   const { writeContractAsync } = useWriteContract();
   const tokenCheck = useAcceptedToken();
@@ -184,7 +190,7 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
     if (!file) return;
     setActionError(null);
     try {
-      const bee = makeBee(BEE_URL);
+      const bee = makeBee(beeUrl);
       const ref = await uploadFile(bee, batchId, file);
       setImages((xs) => [...xs, ref]);
     } catch (err) {
@@ -241,7 +247,7 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
       const metaObj = assertListingMetadata(meta);
 
       // Upload metadata JSON.
-      const bee = makeBee(BEE_URL);
+      const bee = makeBee(beeUrl);
       const metaRef = await uploadJson(bee, batchId, metaObj);
 
       // createListing(token, price, stock, metadata).
@@ -414,7 +420,7 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
 
 /** One existing listing with edit (price/metadata via re-upload) + active toggle. */
 function ListingRow({ listing, onChanged }) {
-  const { batchId, ready: uploadsReady } = usePostageBatch();
+  const { batchId, beeUrl, ready: uploadsReady } = usePostageBatch();
   const publicClient = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
   const { writeContractAsync } = useWriteContract();
 
@@ -490,7 +496,7 @@ function ListingRow({ listing, onChanged }) {
       meta.payment = { token: listing.token, symbol: listing.symbol, decimals: listing.decimals };
       const metaObj = assertListingMetadata(meta);
 
-      const bee = makeBee(BEE_URL);
+      const bee = makeBee(beeUrl);
       const metaRef = await uploadJson(bee, batchId, metaObj);
 
       const hash = await writeContractAsync({
