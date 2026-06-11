@@ -90,7 +90,8 @@ export default function Portal() {
   return (
     <>
       <UtilityBar />
-      <Nav links={NAV_LINKS} />
+      {/* No Swarm connect on the homepage — it's only needed inside a shop (buy + PSS). */}
+      <Nav links={NAV_LINKS} wallet={false} />
 
       <main>
         {/* HERO */}
