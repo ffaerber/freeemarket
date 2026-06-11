@@ -11,6 +11,8 @@ import { createRoot } from 'react-dom/client';
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { wagmiConfig } from './wagmi.js';
+import './design/identity.css';
+import './design/pages.css';
 import App from './App.jsx';
 
 const queryClient = new QueryClient();

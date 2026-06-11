@@ -1,0 +1,68 @@
+/* Page-local layout for the storefront app (Landing + Shop views).
+   Brand/component styling lives in identity.css; this is just grid scaffolding,
+   lifted from the design mockups (docs/design/*.html <style> blocks). */
+
+/* ---------- Landing / Portal ---------- */
+.hero { padding-block: clamp(48px, 7vw, 96px) clamp(56px, 8vw, 110px); position: relative; }
+.hero-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: clamp(32px, 5vw, 72px); align-items: center; }
+.hero-cta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 34px; }
+.hero-proof { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+.hero-visual { position: relative; aspect-ratio: 4/5; border: 1.5px solid var(--border); border-radius: var(--radius-xl);
+  background: var(--blue-tint); overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 24px; box-shadow: var(--shadow-md); }
+.hero-figure { position: absolute; inset: 0; display: grid; place-items: center; font-size: clamp(80px, 16vw, 180px); opacity: 0.95; }
+
+.values { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(24px, 4vw, 56px); }
+.mosaic { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px; }
+.mosaic .fm-tile:first-child { grid-row: span 1; min-height: 360px; }
+.steps-wrap { display: grid; grid-template-columns: repeat(4, 1fr); }
+.section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 36px; flex-wrap: wrap; }
+.shop-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.listings-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+.merchant-band { position: relative; overflow: hidden; border: 1.5px solid var(--border); border-radius: var(--radius-2xl);
+  background: var(--blue-tint); padding: clamp(40px, 6vw, 76px); text-align: center; box-shadow: var(--shadow-md); }
+
+@media (max-width: 960px) {
+  .hero-grid { grid-template-columns: 1fr; }
+  .hero-visual { aspect-ratio: 16/10; max-height: 420px; }
+  .values { grid-template-columns: 1fr; gap: 28px; }
+  .mosaic { grid-template-columns: 1fr; }
+  .steps-wrap { grid-template-columns: 1fr 1fr; }
+  .shop-grid { grid-template-columns: 1fr 1fr; }
+  .listings-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 540px) {
+  .steps-wrap, .shop-grid, .listings-grid { grid-template-columns: 1fr; }
+}
+
+/* ---------- Shop view ---------- */
+.shop-hero { padding-block: clamp(40px, 6vw, 72px); position: relative; }
+.shop-hero-grid { display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: flex-end; }
+.shop-name-xl { font-family: var(--font-serif); font-weight: 800; font-size: clamp(40px, 6vw, 76px); line-height: 1.0; color: var(--ink-900); margin: 14px 0 0; letter-spacing: -0.03em; }
+.filter-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-block: 18px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 32px; }
+.chip { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; text-transform: none; color: var(--fg-muted); border: 1.5px solid var(--border); border-radius: var(--radius-pill); padding: 8px 16px; cursor: pointer; background: transparent; transition: all var(--dur-quick, .14s) var(--ease-gentle, ease); white-space: nowrap; }
+.chip:hover { color: var(--neon-600); border-color: var(--border-strong); }
+.chip.is-active { color: var(--neon-700); border-color: rgba(62,120,255,0.4); background: var(--blue-tint); }
+.chip-spacer { flex: 1; }
+.store-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+@media (max-width: 960px) { .store-grid { grid-template-columns: repeat(2, 1fr); } .shop-hero-grid { grid-template-columns: 1fr; } }
+@media (max-width: 540px) { .store-grid { grid-template-columns: 1fr 1fr; } }
+
+/* product modal */
+.modal-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(14,23,38,0.45); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.modal { background: #fff; border: 1.5px solid var(--border); border-radius: var(--radius-xl); max-width: 860px; width: 100%; max-height: 90vh; overflow: hidden; display: grid; grid-template-columns: 1fr 1fr; box-shadow: var(--shadow-lg); position: relative; }
+.modal .fm-media { aspect-ratio: auto; height: 100%; min-height: 420px; }
+.modal-body { padding: 32px; overflow-y: auto; }
+.modal-x { position: absolute; top: 18px; right: 18px; z-index: 2; }
+@media (max-width: 720px) { .modal { grid-template-columns: 1fr; max-height: 92vh; } .modal .fm-media { min-height: 220px; } }
+
+/* ---- legacy var aliases: map old theme tokens to the design system so any
+   remaining inline-styled component (Checkout, CMS sections) adopts the look ---- */
+:root {
+  --text: var(--fg);
+  --muted: var(--fg-muted);
+  --surface: var(--bg-raised);
+  --accent2: var(--phos-500);
+  --radius: var(--radius-md);
+  --display: var(--font-serif);
+  --body: var(--font-sans);
+}
