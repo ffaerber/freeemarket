@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Nightmarket Produce — freeemarket.eth/nightmarket</title>
+<link rel="stylesheet" href="assets/identity.css"/>
+<style>
+  .shop-hero { padding-block: clamp(40px, 6vw, 72px); position: relative; }
+  .shop-hero-grid { display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: flex-end; }
+  .shop-name-xl { font-family: var(--font-serif); font-weight: var(--w-light); font-size: clamp(44px, 7vw, 84px); line-height: 0.95; color: var(--fg); margin: 14px 0 0; letter-spacing: var(--track-tight); }
+  .filter-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-block: 18px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 32px; }
+  .chip { font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--fg-muted); border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 8px 16px; cursor: pointer; background: transparent; transition: all var(--dur-quick) var(--ease-gentle); white-space: nowrap; }
+  .chip:hover { color: var(--phos-500); border-color: var(--border-strong); }
+  .chip.is-active { color: var(--neon-700); border-color: rgba(62,120,255,0.4); background: var(--blue-tint); }
+  .chip-spacer { flex: 1; }
+  .store-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  @media (max-width: 960px) { .store-grid { grid-template-columns: repeat(2, 1fr); } .shop-hero-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 540px) { .store-grid { grid-template-columns: 1fr 1fr; } }
+
+  /* product modal */
+  .modal-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(14,23,38,0.45); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.is-open { display: flex; }
+  .modal { background: #fff; border: 1.5px solid var(--border); border-radius: var(--radius-xl); max-width: 860px; width: 100%; max-height: 90vh; overflow: hidden; display: grid; grid-template-columns: 1fr 1fr; box-shadow: var(--shadow-lg); }
+  .modal .fm-media { aspect-ratio: auto; height: 100%; min-height: 420px; }
+  .modal-body { padding: 32px; overflow-y: auto; }
+  .modal-x { position: absolute; top: 18px; right: 18px; z-index: 2; }
+  @media (max-width: 720px) { .modal { grid-template-columns: 1fr; max-height: 92vh; } .modal .fm-media { min-height: 220px; } }
+</style>
+</head>
+<body>
+
+<!-- UTILITY BAR -->
+<div class="fm-utilbar">
+  <div class="fm-rail fm-rail--wide">
+    <div class="fm-util-group">
+      <span style="display:inline-flex;align-items:center;gap:8px;"><span class="fm-dot fm-dot--pulse"></span> gnosis · escrow live</span>
+      <span style="color:var(--border-strong);">·</span>
+      <span><a href="FreeeMarket Landing.html">← back to market</a></span>
+    </div>
+    <div class="fm-util-group"><span>ships worldwide</span><span style="color:var(--border-strong);">·</span><span>usdc</span></div>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav class="fm-nav">
+  <div class="fm-rail fm-rail--wide">
+    <a href="FreeeMarket Landing.html" class="fm-logo"><span class="mk">fr</span><span class="eee">eee</span><span class="mk">market</span></a>
+    <div class="fm-nav-links">
+      <a href="#" class="fm-nav-link is-active">Shop</a>
+      <a href="#" class="fm-nav-link">About this shop</a>
+      <a href="#" class="fm-nav-link">Shipping</a>
+    </div>
+    <div class="fm-nav-spacer"></div>
+    <div class="fm-nav-actions">
+      <label class="fm-search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" placeholder="Search this shop"/>
+      </label>
+      <button class="fm-icon-btn" title="Cart"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg></button>
+      <a href="#" class="fm-wallet"><span class="fm-dot"></span> 0x8f…3aD2</a>
+    </div>
+  </div>
+</nav>
+
+<!-- SHOP HERO -->
+<header class="shop-hero">
+  <div class="fm-rail fm-rail--wide shop-hero-grid">
+    <div>
+      <div class="fm-kicker">// freeemarket.eth/nightmarket</div>
+      <h1 class="shop-name-xl">Nightmarket<br/>Produce</h1>
+      <p class="fm-lead" style="margin-top:18px; max-width:42ch;">Fruit picked after dark and shipped within three days. A small peer-to-peer stand — paid in stablecoins, held in escrow until it lands at your door.</p>
+      <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:22px;">
+        <span class="fm-pill fm-pill--trust"><span class="fm-dot"></span> escrow on gnosis</span>
+        <span class="fm-pill">ships worldwide · 3 days</span>
+        <span class="fm-pill fm-pill--price">0 % fee</span>
+      </div>
+    </div>
+    <div class="fm-hud" style="min-width:260px;">
+      <div class="fm-hud-row"><span class="fm-hud-key">seller</span><span class="fm-hud-val">0x91c4…8aF1</span></div>
+      <div class="fm-hud-row"><span class="fm-hud-key">listings</span><span class="fm-hud-val fm-hud-val--neon">14 active</span></div>
+      <div class="fm-hud-row"><span class="fm-hud-key">orders settled</span><span class="fm-hud-val">312</span></div>
+      <div class="fm-hud-row"><span class="fm-hud-key">disputes</span><span class="fm-hud-val fm-hud-val--amber">1</span></div>
+    </div>
+  </div>
+</header>
+
+<!-- FILTER BAR + GRID -->
+<main class="fm-section" style="padding-top:8px;">
+  <div class="fm-rail fm-rail--wide">
+    <div class="filter-bar">
+      <button class="chip is-active">All goods</button>
+      <button class="chip">Berries</button>
+      <button class="chip">Stone fruit</button>
+      <button class="chip">Citrus</button>
+      <button class="chip">Tropical</button>
+      <span class="chip-spacer"></span>
+      <button class="chip" style="border:none;">Sort: price ↑</button>
+    </div>
+    <div class="store-grid" id="store-grid"></div>
+  </div>
+</main>
+
+<footer class="fm-footer">
+  <div class="fm-rail fm-rail--wide">
+    <div class="fm-foot-bottom" style="border:none; margin:0; padding:0;">
+      <span><a href="FreeeMarket Landing.html">freeemarket</a> · nightmarket produce</span>
+      <span>contract: 0xfe23…bcdE · gnosis · 100</span>
+    </div>
+  </div>
+</footer>
+
+<!-- PRODUCT MODAL -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal" style="position:relative;">
+    <button class="fm-icon-btn modal-x" onclick="closeModal()">✕</button>
+    <div class="fm-media"><span class="fm-media-glyph" id="m-glyph" style="font-size:120px;">🍓</span></div>
+    <div class="modal-body">
+      <div class="fm-kicker" id="m-shop">// nightmarket</div>
+      <h2 class="fm-h3" id="m-title" style="margin:14px 0 8px;">Night strawberries</h2>
+      <p class="fm-body" id="m-desc" style="font-size:14px;">Picked after midnight, packed cold, shipped within three days. Sweeter than the morning crop.</p>
+
+      <div style="margin-top:20px;">
+        <div class="fm-label" style="margin-bottom:8px;">Variant</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;" id="m-variants"></div>
+      </div>
+
+      <div style="display:flex; align-items:baseline; justify-content:space-between; margin-top:24px;">
+        <span class="fm-serif" id="m-price" style="font-size:40px; color:var(--neon-300);">4.00</span>
+        <span class="fm-mono fm-small" id="m-token">USDC</span>
+      </div>
+      <div class="fm-mono fm-small" id="m-breakdown" style="margin-top:6px; color:var(--fg-soft);">item 3.00 + shipping 1.00 USDC</div>
+      <div class="fm-stock fm-stock--low" id="m-stock" style="margin-top:8px;">only 3 left</div>
+
+      <button class="fm-btn fm-btn--primary fm-btn--block fm-btn--lg" style="margin-top:22px;" onclick="goCheckout()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        Buy with USDC
+      </button>
+
+      <!-- checkout step (hidden until Buy) -->
+      <div id="checkout" style="display:none; margin-top:22px; padding-top:22px; border-top:1px solid var(--border);">
+        <div class="fm-kicker" style="margin-bottom:16px;">// escrow checkout</div>
+        <div class="fm-hud" style="margin-bottom:16px;">
+          <div class="fm-hud-row"><span class="fm-hud-key">1 · approve</span><span class="fm-hud-val">USDC spend</span></div>
+          <div class="fm-hud-row"><span class="fm-hud-key">2 · buy()</span><span class="fm-hud-val fm-hud-val--neon">escrow 4.00</span></div>
+          <div class="fm-hud-row"><span class="fm-hud-key">3 · address</span><span class="fm-hud-val">encrypted · PSS</span></div>
+        </div>
+        <div class="fm-field" style="margin-bottom:12px;">
+          <label class="fm-label">Ship to (encrypted end-to-end)</label>
+          <input class="fm-input" placeholder="Name, street, city, country"/>
+        </div>
+        <button class="fm-btn fm-btn--primary fm-btn--block fm-btn--lg" onclick="confirmBuy(this)">&gt; Approve &amp; pay into escrow</button>
+        <p class="fm-mono fm-small" style="margin-top:12px; color:var(--fg-soft); text-align:center;">funds release to seller only on delivery</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const GOODS = [
+    { glyph:'🍓', shop:'nightmarket', title:'Night strawberries', desc:'Picked after midnight, packed cold, shipped within three days.', price:'4.00', token:'USDC', stock:'only 3 left', low:true, variants:['250g','500g','1kg'], bd:'item 3.00 + shipping 1.00 USDC' },
+    { glyph:'🥭', shop:'nightmarket', title:'Alphonso mango', desc:'A case of six, ripened on the branch. Sweet, dense, fragrant.', price:'18.00', token:'USDC', stock:'only 2 left', low:true, variants:['case of 6','case of 12'], bd:'item 15.00 + shipping 3.00 USDC' },
+    { glyph:'🫐', shop:'nightmarket', title:'Wild blueberries', desc:'Foraged, frozen at source. Small, tart, intense.', price:'7.50', token:'USDC', stock:'22 in stock', variants:['200g','400g'], bd:'item 6.00 + shipping 1.50 USDC' },
+    { glyph:'🍑', shop:'nightmarket', title:'Yellow peaches', desc:'Soft, dripping, late-season. Eat over the sink.', price:'9.00', token:'USDC', stock:'9 in stock', variants:['4 pack','8 pack'], bd:'item 7.50 + shipping 1.50 USDC' },
+    { glyph:'🍒', shop:'nightmarket', title:'Dark cherries', desc:'Almost black, firm, snap-sweet. Stems on.', price:'11.00', token:'USDC', stock:'only 5 left', low:true, variants:['500g'], bd:'item 9.50 + shipping 1.50 USDC' },
+    { glyph:'🍋', shop:'nightmarket', title:'Amalfi lemons', desc:'Thick-skinned, perfumed. For peel and juice both.', price:'6.00', token:'USDC', stock:'31 in stock', variants:['6 pack','12 pack'], bd:'item 4.50 + shipping 1.50 USDC' },
+    { glyph:'🍇', shop:'nightmarket', title:'Muscat grapes', desc:'Honeyed, with seeds. The old kind, worth the trouble.', price:'8.50', token:'xDAI', stock:'sold out', out:true, variants:['750g'], bd:'item 7.00 + shipping 1.50 xDAI' },
+    { glyph:'🥝', shop:'nightmarket', title:'Golden kiwi', desc:'Smooth-skinned, tropical, low-acid. A tray of nine.', price:'10.00', token:'USDC', stock:'14 in stock', variants:['tray of 9'], bd:'item 8.50 + shipping 1.50 USDC' },
+  ];
+
+  const grid = document.getElementById('store-grid');
+  grid.innerHTML = GOODS.map((g, i) => `
+    <article class="fm-card fm-product fm-rise" style="animation-delay:${0.03*i}s" onclick="openModal(${i})">
+      <div class="fm-media"><span class="fm-media-glyph">${g.glyph}</span></div>
+      <div class="fm-product-body">
+        <div class="fm-product-shop">${g.shop}</div>
+        <div class="fm-product-title">${g.title}</div>
+        <div class="fm-product-row">
+          <span class="fm-product-price">${g.price}</span>
+          <span class="fm-product-token">${g.token}</span>
+        </div>
+        <div class="fm-stock ${g.out?'fm-stock--out':g.low?'fm-stock--low':''}">${g.stock}</div>
+      </div>
+    </article>`).join('');
+
+  const modal = document.getElementById('modal');
+  function openModal(i){
+    const g = GOODS[i];
+    document.getElementById('m-glyph').textContent = g.glyph;
+    document.getElementById('m-shop').textContent = '// ' + g.shop;
+    document.getElementById('m-title').textContent = g.title;
+    document.getElementById('m-desc').textContent = g.desc;
+    document.getElementById('m-price').textContent = g.price;
+    document.getElementById('m-token').textContent = g.token;
+    document.getElementById('m-breakdown').textContent = g.bd;
+    const stk = document.getElementById('m-stock');
+    stk.textContent = g.stock;
+    stk.className = 'fm-stock ' + (g.out?'fm-stock--out':g.low?'fm-stock--low':'');
+    document.getElementById('m-variants').innerHTML = g.variants.map((v,vi)=>`<button class="chip ${vi===0?'is-active':''}" onclick="this.parentNode.querySelectorAll('.chip').forEach(c=>c.classList.remove('is-active'));this.classList.add('is-active')">${v}</button>`).join('');
+    document.getElementById('checkout').style.display = 'none';
+    modal.classList.add('is-open');
+  }
+  function closeModal(){ modal.classList.remove('is-open'); }
+  function goCheckout(){ document.getElementById('checkout').style.display = 'block'; document.getElementById('checkout').scrollIntoView===undefined; }
+  function confirmBuy(btn){ btn.textContent = '✓ funded · escrow held'; btn.style.background='var(--phos-500)'; btn.style.borderColor='var(--phos-500)'; btn.style.boxShadow='var(--glow-phos)'; }
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+</script>
+</body>
+</html>

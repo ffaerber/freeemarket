@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>FreeeMarket — Own the market</title>
+<link rel="stylesheet" href="assets/identity.css"/>
+<style>
+  /* page-local layout only — all brand styling lives in identity.css */
+  .hero { padding-block: clamp(48px, 7vw, 96px) clamp(56px, 8vw, 110px); position: relative; }
+  .hero-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: clamp(32px, 5vw, 72px); align-items: center; }
+  .hero-cta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 34px; }
+  .hero-proof { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+  .hero-visual { position: relative; aspect-ratio: 4/5; border: 1.5px solid var(--border); border-radius: var(--radius-xl);
+    background: var(--blue-tint);
+    overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 24px; box-shadow: var(--shadow-md); }
+  .hero-visual::after { content:''; position:absolute; inset:0; background: var(--scanlines); pointer-events:none; }
+  .hero-figure { position:absolute; inset:0; display:grid; place-items:center; font-size: clamp(80px,16vw,180px); opacity:0.95; filter: none; }
+
+  .values { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(24px, 4vw, 56px); }
+  .mosaic { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px; }
+  .mosaic .fm-tile:first-child { grid-row: span 1; min-height: 360px; }
+  .steps-wrap { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 36px; flex-wrap: wrap; }
+  .shop-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .listings-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+  .merchant-band { position: relative; overflow: hidden; border: 1.5px solid var(--border); border-radius: var(--radius-2xl);
+    background: var(--blue-tint);
+    padding: clamp(40px, 6vw, 76px); text-align: center; box-shadow: var(--shadow-md); }
+  .merchant-band::after { content:''; position:absolute; inset:0; background: var(--scanlines); pointer-events:none; }
+
+  @media (max-width: 960px) {
+    .hero-grid { grid-template-columns: 1fr; }
+    .hero-visual { aspect-ratio: 16/10; max-height: 420px; }
+    .values { grid-template-columns: 1fr; gap: 28px; }
+    .mosaic { grid-template-columns: 1fr; }
+    .steps-wrap { grid-template-columns: 1fr 1fr; }
+    .shop-grid { grid-template-columns: 1fr 1fr; }
+    .listings-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 540px) {
+    .steps-wrap, .shop-grid, .listings-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ UTILITY BAR ============ -->
+<div class="fm-utilbar">
+  <div class="fm-rail fm-rail--wide">
+    <div class="fm-util-group">
+      <span style="display:inline-flex;align-items:center;gap:8px;"><span class="fm-dot fm-dot--pulse"></span> gnosis chain · escrow live</span>
+      <span style="color:var(--border-strong);">·</span>
+      <span>0 % platform fee</span>
+    </div>
+    <div class="fm-util-group">
+      <a href="#">docs</a>
+      <a href="#">github</a>
+      <a href="#">en · usdc</a>
+    </div>
+  </div>
+</div>
+
+<!-- ============ NAV ============ -->
+<nav class="fm-nav">
+  <div class="fm-rail fm-rail--wide">
+    <a href="FreeeMarket Landing.html" class="fm-logo"><span class="mk">fr</span><span class="eee">eee</span><span class="mk">market</span></a>
+    <div class="fm-nav-links">
+      <a href="#shops" class="fm-nav-link is-active">Browse shops</a>
+      <a href="FreeeMarket CMS.html" class="fm-nav-link">Open a shop</a>
+      <a href="#how" class="fm-nav-link">How escrow works</a>
+      <a href="#listings" class="fm-nav-link">Listings</a>
+    </div>
+    <div class="fm-nav-spacer"></div>
+    <div class="fm-nav-actions">
+      <label class="fm-search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" placeholder="Search shops & goods"/>
+      </label>
+      <a href="#" class="fm-wallet"><span class="fm-dot"></span> 0x8f…3aD2</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="fm-rail fm-rail--wide hero-grid">
+    <div>
+      <div class="fm-kicker fm-rise" style="margin-bottom:22px;">// an open eBay · permissionless commerce</div>
+      <h1 class="fm-display fm-rise" style="animation-delay:.05s; font-size: clamp(46px, 6.4vw, 88px);">Own the market.<br/>No <em>middleman</em>.</h1>
+      <p class="fm-lead fm-rise" style="animation-delay:.12s; margin-top:24px; max-width:48ch;">
+        Anyone runs their own shop, sells real goods, and gets paid in stablecoins through
+        on-chain escrow. Funds release only on delivery. No platform takes a cut.
+      </p>
+      <div class="hero-cta fm-rise" style="animation-delay:.18s;">
+        <a href="FreeeMarket CMS.html" class="fm-btn fm-btn--primary fm-btn--lg">&gt; Open your shop</a>
+        <a href="#shops" class="fm-btn fm-btn--ghost fm-btn--lg">Browse shops</a>
+      </div>
+      <div class="hero-proof fm-rise" style="animation-delay:.24s;">
+        <span class="fm-pill fm-pill--trust"><span class="fm-dot"></span> USDC escrow on Gnosis</span>
+        <span class="fm-pill">Swarm + ENS hosted</span>
+        <span class="fm-pill fm-pill--price">100 % buyer → seller</span>
+      </div>
+    </div>
+
+    <!-- escrow HUD visual -->
+    <div class="hero-visual fm-rise" style="animation-delay:.1s;">
+      <div class="hero-figure">🜲</div>
+      <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start;">
+        <span class="fm-kicker">// order_0x91c</span>
+        <span class="fm-pill fm-pill--trust" style="background:#fff;"><span class="fm-dot fm-dot--pulse"></span> funded</span>
+      </div>
+      <div class="fm-hud" style="position:relative; z-index:1; background:#fff;">
+        <div class="fm-hud-row"><span class="fm-hud-key">escrow</span><span class="fm-hud-val">held · 24.00 USDC</span></div>
+        <div class="fm-hud-row"><span class="fm-hud-key">release on</span><span class="fm-hud-val">delivery confirm</span></div>
+        <div class="fm-hud-row"><span class="fm-hud-key">platform fee</span><span class="fm-hud-val fm-hud-val--neon">0.00</span></div>
+        <div class="fm-hud-row"><span class="fm-hud-key">dispute path</span><span class="fm-hud-val fm-hud-val--amber">open · 14d</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ VALUE PROPS ============ -->
+<section class="fm-section--tight">
+  <div class="fm-rail fm-rail--wide values">
+    <div class="fm-feature">
+      <div class="fm-feature-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
+      <div class="fm-kicker" style="margin-bottom:14px;">01 / escrow</div>
+      <h3 class="fm-feature-title">Trustless payment.</h3>
+      <p class="fm-feature-body">Buyers pay USDC into escrow on Gnosis. Funds release to the seller only on delivery confirmation — or after timeout — with a dispute path either way.</p>
+    </div>
+    <div class="fm-feature">
+      <div class="fm-feature-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+      <div class="fm-kicker" style="margin-bottom:14px;">02 / sovereign</div>
+      <h3 class="fm-feature-title">Decentralized.</h3>
+      <p class="fm-feature-body">Shops are hosted on Swarm and resolved through ENS. No server to seize, no account to ban. Your shop lives at <span class="fm-mono" style="color:var(--phos-500)">/your-handle</span>.</p>
+    </div>
+    <div class="fm-feature">
+      <div class="fm-feature-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18"/><path d="M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M12 11v6"/><path d="M9 14h6"/></svg></div>
+      <div class="fm-kicker" style="margin-bottom:14px;">03 / open</div>
+      <h3 class="fm-feature-title">Permissionless.</h3>
+      <p class="fm-feature-body">Anyone opens a shop, lists physical goods, and gets paid in stablecoins. The fruit seller and the car-parts seller share one backend and nothing else.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CAMPAIGN MOSAIC ============ -->
+<section class="fm-section--tight">
+  <div class="fm-rail fm-rail--wide">
+    <div class="mosaic">
+      <a href="#shops" class="fm-tile">
+        <div class="fm-tile-inner">
+          <span class="fm-kicker fm-kicker--neon">// featured market</span>
+          <h3 class="fm-tile-title">Browse every shop, one chain.</h3>
+          <p class="fm-tile-body">From a 3 a.m. fruit stand to industrial car parts — every shop registered on-chain, in one directory.</p>
+          <span class="fm-tile-cta">Enter the market →</span>
+        </div>
+      </a>
+      <a href="FreeeMarket CMS.html" class="fm-tile">
+        <div class="fm-tile-inner">
+          <span class="fm-kicker fm-kicker--amber">// 5 min setup</span>
+          <h3 class="fm-tile-title">Open a shop.</h3>
+          <p class="fm-tile-body">Connect a wallet, claim a handle, list goods.</p>
+          <span class="fm-tile-cta">Start selling →</span>
+        </div>
+      </a>
+      <a href="#how" class="fm-tile">
+        <div class="fm-tile-inner">
+          <span class="fm-kicker">// the mechanic</span>
+          <h3 class="fm-tile-title">How escrow works.</h3>
+          <p class="fm-tile-body">Funded → completed, with a dispute branch.</p>
+          <span class="fm-tile-cta">See the flow →</span>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW ESCROW WORKS ============ -->
+<section id="how" class="fm-section">
+  <div class="fm-rail fm-rail--wide">
+    <div class="section-head">
+      <div>
+        <div class="fm-kicker" style="margin-bottom:16px;">// order lifecycle</div>
+        <h2 class="fm-h2" style="max-width:18ch;">From cart to delivered, the contract holds the line.</h2>
+      </div>
+      <span class="fm-pill fm-pill--trust"><span class="fm-dot"></span> Marketplace.sol · unaudited</span>
+    </div>
+    <div class="fm-steps steps-wrap">
+      <div class="fm-step">
+        <div class="fm-step-num">01 // PAY</div>
+        <div class="fm-step-title">Funded</div>
+        <p class="fm-step-body">Buyer approves USDC and calls <span class="fm-mono" style="color:var(--phos-500)">buy()</span>. The amount is escrowed; the encrypted shipping address travels off-chain.</p>
+      </div>
+      <div class="fm-step">
+        <div class="fm-step-num">02 // SHIP</div>
+        <div class="fm-step-title">In transit</div>
+        <p class="fm-step-body">Seller decrypts the address, ships, and sends a tracking code back over the same encrypted channel.</p>
+      </div>
+      <div class="fm-step">
+        <div class="fm-step-num">03 // CONFIRM</div>
+        <div class="fm-step-title">Completed</div>
+        <p class="fm-step-body">Buyer calls <span class="fm-mono" style="color:var(--phos-500)">confirmReceipt()</span>. 100 % of escrow releases to the seller — or auto-releases after 14 days.</p>
+      </div>
+      <div class="fm-step">
+        <div class="fm-step-num">04 // BRANCH</div>
+        <div class="fm-step-title" style="color:var(--amber-500)">Disputed</div>
+        <p class="fm-step-body">Either party can open a dispute. The arbiter refunds the buyer or pays the seller — never themselves.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SHOP DIRECTORY ============ -->
+<section id="shops" class="fm-section" style="padding-top:0;">
+  <div class="fm-rail fm-rail--wide">
+    <div class="section-head">
+      <div>
+        <div class="fm-kicker" style="margin-bottom:16px;">// registered on-chain</div>
+        <h2 class="fm-h2">Shops</h2>
+      </div>
+      <a href="#" class="fm-btn fm-btn--quiet">View all 128 →</a>
+    </div>
+    <div class="shop-grid">
+      <a href="FreeeMarket Storefront.html" class="fm-card fm-shop">
+        <div class="fm-media" style="aspect-ratio:16/9;"><span class="fm-media-glyph">🍓</span></div>
+        <div class="fm-shop-meta">
+          <div><div class="fm-shop-name">Nightmarket Produce</div><div class="fm-shop-handle">freeemarket.eth/nightmarket</div></div>
+          <span class="fm-shop-count">14 goods</span>
+        </div>
+      </a>
+      <a href="FreeeMarket Storefront.html" class="fm-card fm-shop">
+        <div class="fm-media" style="aspect-ratio:16/9;"><span class="fm-media-glyph">🔧</span></div>
+        <div class="fm-shop-meta">
+          <div><div class="fm-shop-name">Halverson Parts</div><div class="fm-shop-handle">freeemarket.eth/halverson</div></div>
+          <span class="fm-shop-count">63 goods</span>
+        </div>
+      </a>
+      <a href="FreeeMarket Storefront.html" class="fm-card fm-shop">
+        <div class="fm-media" style="aspect-ratio:16/9;"><span class="fm-media-glyph">🜂</span></div>
+        <div class="fm-shop-meta">
+          <div><div class="fm-shop-name">Kettle &amp; Char</div><div class="fm-shop-handle">freeemarket.eth/kettle</div></div>
+          <span class="fm-shop-count">9 goods</span>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEATURED LISTINGS ============ -->
+<section id="listings" class="fm-section" style="padding-top:0;">
+  <div class="fm-rail fm-rail--wide">
+    <div class="section-head">
+      <div>
+        <div class="fm-kicker fm-kicker--neon" style="margin-bottom:16px;">// fresh on the market</div>
+        <h2 class="fm-h2">Featured goods</h2>
+      </div>
+      <a href="FreeeMarket Storefront.html" class="fm-btn fm-btn--quiet">Shop all →</a>
+    </div>
+    <div class="listings-grid" id="listings-grid"></div>
+  </div>
+</section>
+
+<!-- ============ MERCHANT BAND ============ -->
+<section class="fm-section" style="padding-top:0;">
+  <div class="fm-rail fm-rail--wide">
+    <div class="merchant-band">
+      <div style="position:relative; z-index:1; max-width:680px; margin-inline:auto;">
+        <div class="fm-kicker fm-kicker--amber" style="justify-content:center; margin-bottom:22px;">// your wallet is your storefront</div>
+        <h2 class="fm-h2" style="font-size:clamp(30px,4.4vw,56px);">Start selling in the time it takes to make a coffee.</h2>
+        <p class="fm-lead" style="margin:22px auto 0; max-width:46ch;">Claim a handle, list your first good, and you're live at <span class="fm-mono" style="color:var(--phos-500)">freeemarket.eth/you</span>. No fees, no approval, no landlord.</p>
+        <div style="display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:34px;">
+          <a href="FreeeMarket CMS.html" class="fm-btn fm-btn--primary fm-btn--lg">&gt; Open your shop</a>
+          <a href="#" class="fm-btn fm-btn--ghost fm-btn--lg">Read the docs</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer class="fm-footer">
+  <div class="fm-rail fm-rail--wide">
+    <div class="fm-footer-cols">
+      <div>
+        <a href="FreeeMarket Landing.html" class="fm-logo" style="font-size:22px;"><span class="mk">fr</span><span class="eee">eee</span><span class="mk">market</span></a>
+        <p class="fm-body" style="margin-top:16px; max-width:34ch; font-size:14px;">A decentralized, multi-vendor marketplace. Pure escrow + listings on Gnosis. No platform fee, ever.</p>
+        <div style="margin-top:20px;"><span class="fm-pill fm-pill--trust"><span class="fm-dot fm-dot--pulse"></span> network: gnosis · 100</span></div>
+      </div>
+      <div>
+        <h4 class="fm-foot-h">Market</h4>
+        <a href="#shops" class="fm-foot-link">Browse shops</a>
+        <a href="#listings" class="fm-foot-link">Featured goods</a>
+        <a href="FreeeMarket Storefront.html" class="fm-foot-link">Storefront demo</a>
+        <a href="#how" class="fm-foot-link">How escrow works</a>
+      </div>
+      <div>
+        <h4 class="fm-foot-h">Sell</h4>
+        <a href="FreeeMarket CMS.html" class="fm-foot-link">Open a shop</a>
+        <a href="FreeeMarket CMS.html" class="fm-foot-link">Merchant console</a>
+        <a href="#" class="fm-foot-link">Claim a handle</a>
+        <a href="#" class="fm-foot-link">Forking guide</a>
+      </div>
+      <div>
+        <h4 class="fm-foot-h">Protocol</h4>
+        <a href="#" class="fm-foot-link">Marketplace.sol</a>
+        <a href="#" class="fm-foot-link">Swarm + ENS</a>
+        <a href="#" class="fm-foot-link">Encrypted shipping</a>
+        <a href="#" class="fm-foot-link">GitHub</a>
+      </div>
+    </div>
+    <div class="fm-foot-bottom">
+      <span>© 2026 freeemarket — fee-free &amp; permissionless</span>
+      <span>contract: 0xfe23…bcdE · unaudited</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Featured goods — rendered from data so the grid stays one source of truth.
+  const LISTINGS = [
+    { shop: 'nightmarket', glyph: '🍓', title: 'Night strawberries · 250g', price: '4.00', token: 'USDC', stock: 'only 3 left', low: true },
+    { shop: 'kettle', glyph: '🜂', title: 'Smoked sea salt · 100g jar', price: '9.50', token: 'USDC', stock: '24 in stock' },
+    { shop: 'halverson', glyph: '⚙️', title: 'Brake caliper · rebuilt', price: '62.00', token: 'USDC', stock: '7 in stock' },
+    { shop: 'nightmarket', glyph: '🥭', title: 'Alphonso mango · case of 6', price: '18.00', token: 'USDC', stock: 'only 2 left', low: true },
+    { shop: 'kettle', glyph: '🫙', title: 'Cold-brew concentrate · 500ml', price: '12.00', token: 'xDAI', stock: 'sold out', out: true },
+  ];
+  const grid = document.getElementById('listings-grid');
+  grid.innerHTML = LISTINGS.map((l, i) => `
+    <article class="fm-card fm-product fm-rise" style="animation-delay:${0.04 * i}s">
+      <div class="fm-media"><span class="fm-media-glyph">${l.glyph}</span></div>
+      <div class="fm-product-body">
+        <div class="fm-product-shop">${l.shop}</div>
+        <div class="fm-product-title">${l.title}</div>
+        <div class="fm-product-row">
+          <span class="fm-product-price">${l.price}</span>
+          <span class="fm-product-token">${l.token}</span>
+        </div>
+        <div class="fm-stock ${l.out ? 'fm-stock--out' : l.low ? 'fm-stock--low' : ''}">${l.stock}</div>
+      </div>
+    </article>`).join('');
+</script>
+</body>
+</html>
