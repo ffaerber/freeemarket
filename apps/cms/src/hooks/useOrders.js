@@ -15,7 +15,7 @@
  * dashboard can show when the order was funded.
  */
 import { useQuery } from '@tanstack/react-query';
-import { useAccount, useClient } from 'wagmi';
+import { useAccount, usePublicClient } from 'wagmi';
 import { formatUnits, getAddress } from 'viem';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { erc20Abi } from '../abi/erc20.js';
@@ -122,7 +122,7 @@ async function loadOrders(client, seller) {
 }
 
 export function useOrders() {
-  const client = useClient({ chainId: GNOSIS_CHAIN_ID });
+  const client = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
   const { address } = useAccount();
 
   const query = useQuery({

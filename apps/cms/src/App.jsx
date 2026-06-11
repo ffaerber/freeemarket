@@ -41,9 +41,14 @@ function Wordmark() {
   );
 }
 
-/** Swarm connect wizard (wallet + Bee node + postage stamp), pinned to our node. */
+/**
+ * Swarm connect wizard (wallet + Bee node + postage stamp). No hardcoded
+ * beeApiUrl: the package uses (and persists) the node URL the user sets in its
+ * modal — a passed prop would OVERRIDE that. usePostageBatch reads the same
+ * persisted URL, so the button and uploads stay on the same node.
+ */
 function SwarmConnect() {
-  return <SwarmConnectButton beeApiUrl={BEE_URL} />;
+  return <SwarmConnectButton />;
 }
 
 /** Centered connect / unconfigured screen (no console until ready). */

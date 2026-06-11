@@ -16,7 +16,7 @@
  * current `listings(id).price` from step 2 since the seller may have updated it.
  */
 import { useQuery } from '@tanstack/react-query';
-import { useClient } from 'wagmi';
+import { usePublicClient } from 'wagmi';
 import { formatUnits, getAddress } from 'viem';
 import { shippingFromPricing } from '@freeemarket/schema';
 import { marketplaceAbi } from '../abi/marketplace.js';
@@ -192,7 +192,7 @@ export function groupListings(listings) {
 }
 
 export function useListings(seller) {
-  const client = useClient({ chainId: GNOSIS_CHAIN_ID });
+  const client = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
 
   const query = useQuery({
     queryKey: ['listings', MARKETPLACE_ADDRESS, seller, BEE_URL],

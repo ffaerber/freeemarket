@@ -9,7 +9,7 @@
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useClient } from 'wagmi';
+import { usePublicClient } from 'wagmi';
 import { isAddress, getAddress } from 'viem';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { erc20Abi } from '../abi/erc20.js';
@@ -47,7 +47,7 @@ async function inspectToken(client, token) {
 }
 
 export function useAcceptedToken() {
-  const client = useClient({ chainId: GNOSIS_CHAIN_ID });
+  const client = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
   const [token, setToken] = useState('');
 
   const valid = Boolean(token && isAddress(token));

@@ -25,11 +25,12 @@ const SearchIcon = (p) => (
 
 /**
  * Swarm connect wizard (wallet + Bee node + postage stamp) from
- * @ffaerber/swarm-connect, pinned to this app's Bee node. Used in the nav; the
- * buyer needs a Bee node + stamp to send the encrypted shipping address over PSS.
+ * @ffaerber/swarm-connect. No hardcoded beeApiUrl — the package persists the node
+ * URL the buyer sets in its modal (a passed prop would override it). Used in the
+ * shop nav; the buyer needs a Bee node + stamp to send the address over PSS.
  */
 export function WalletButton() {
-  return <SwarmConnectButton beeApiUrl={BEE_URL} />;
+  return <SwarmConnectButton />;
 }
 
 /** Thin machine utility bar above the nav. */
