@@ -86,8 +86,8 @@ deploy-frontend-build:
 #   make deploy-cms POSTAGE_BATCH_ID=.. FEED_PRIVATE_KEY=.. [ENS_NAME=admin.eth]
 deploy-cms:
 	cd scripts && STOREFRONT_DIR=../apps/cms DIST_DIR=$(if $(DIST_DIR),$(DIST_DIR),../apps/cms/dist) \
-	  FEED_TOPIC=$(if $(FEED_TOPIC),$(FEED_TOPIC),freemarket-cms) node deploy-frontend.mjs
+	  FEED_TOPIC=$(if $(FEED_TOPIC),$(FEED_TOPIC),freeemarket-cms) node deploy-frontend.mjs
 
 deploy-cms-build:
 	cd scripts && BUILD=1 STOREFRONT_DIR=../apps/cms \
-	  FEED_TOPIC=$(if $(FEED_TOPIC),$(FEED_TOPIC),freemarket-cms) node deploy-frontend.mjs
+	  FEED_TOPIC=$(if $(FEED_TOPIC),$(FEED_TOPIC),freeemarket-cms) node deploy-frontend.mjs

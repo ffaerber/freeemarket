@@ -30,7 +30,7 @@ export function directionForKind(kind: MessageKind): Direction {
  * polling one direction never sees the other's messages.
  */
 export function topicForOrder(orderId: string, direction: Direction): string {
-  return keccak256(toHex(`freemarket:v1:${direction}:order:${orderId}`));
+  return keccak256(toHex(`freeemarket:v1:${direction}:order:${orderId}`));
 }
 
 /** Options for a {@link Transport.receive} poll. */

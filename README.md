@@ -14,7 +14,7 @@ those in your own fork.
 ## Repo structure
 
 ```
-freemarket/
+freeemarket/
 ├── contracts/              # Foundry — Marketplace.sol, tests, deploy script
 ├── packages/
 │   ├── schema/             # Shared TS types + JSON Schema (CLAUDE.md §6)

@@ -3,11 +3,11 @@
  *
  * COPIED from apps/storefront/src/lib/swarm.js (we can't import across apps).
  * Keep these two files in sync — they share the same on-chain bytes32 ref
- * convention and the same @freemarket/schema runtime guards (CLAUDE.md §6).
+ * convention and the same @freeemarket/schema runtime guards (CLAUDE.md §6).
  * The CMS adds WRITE helpers in ./swarmWrite.js; the read side is identical.
  */
 import { Bee } from '@ethersphere/bee-js';
-import { isShopProfile, isListingMetadata } from '@freemarket/schema';
+import { isShopProfile, isListingMetadata } from '@freeemarket/schema';
 
 /**
  * Normalize a Swarm reference. On-chain refs are `bytes32` (0x-prefixed, 64
@@ -85,7 +85,7 @@ export async function fetchSwarmJson(beeUrl, ref) {
 
 /**
  * Fetch a ShopProfile from Swarm and validate it against the shared schema.
- * @returns {Promise<import('@freemarket/schema').ShopProfile | null>}
+ * @returns {Promise<import('@freeemarket/schema').ShopProfile | null>}
  */
 export async function fetchShopProfile(beeUrl, ref) {
   const json = await fetchSwarmJson(beeUrl, ref);
@@ -99,7 +99,7 @@ export async function fetchShopProfile(beeUrl, ref) {
 
 /**
  * Fetch a ListingMetadata from Swarm and validate it against the shared schema.
- * @returns {Promise<import('@freemarket/schema').ListingMetadata | null>}
+ * @returns {Promise<import('@freeemarket/schema').ListingMetadata | null>}
  */
 export async function fetchListingMetadata(beeUrl, ref) {
   const json = await fetchSwarmJson(beeUrl, ref);

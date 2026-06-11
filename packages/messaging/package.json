@@ -1,5 +1,5 @@
 {
-  "name": "@freemarket/messaging",
+  "name": "@freeemarket/messaging",
   "version": "0.1.0",
   "description": "Bidirectional encrypted messaging over Swarm PSS for FreeeMarket: ECIES + signed envelopes with on-chain sender verification (buyer→seller shipping address, seller→buyer tracking code).",
   "license": "MIT",

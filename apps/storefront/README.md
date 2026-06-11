@@ -9,7 +9,7 @@ viem + `@tanstack/react-query` + `@ethersphere/bee-js`. It reads listings
 on-chain (filtered by the shop's seller address), fetches each listing's
 metadata from Swarm, and runs a real escrow checkout
 (`approve` → `market.buy`). The encrypted-shipping-address-over-PSS step is
-**wired live** to `@freemarket/messaging`, going live when a ContactRegistry +
+**wired live** to `@freeemarket/messaging`, going live when a ContactRegistry +
 full Bee node + postage batch are configured and falling back to a graceful stub
 otherwise (see below). The buyer can also read the seller's encrypted tracking
 code from the order-success "Track order" panel (with their own ECIES key
@@ -56,16 +56,16 @@ configured shop, and checkout is disabled in demo mode.
 - `src/wagmi.js` — wagmi v2 config: Gnosis chain, injected connector, HTTP transport.
 - `src/config.js` — env-driven config + DEMO_MODE + ported demo shop / fallback theme.
 - `src/abi/` — minimal viem ABIs for `Marketplace` and ERC-20.
-- `src/lib/swarm.js` — `fetchSwarmJson` / `fetchShopProfile` / `fetchListingMetadata` (bee-js `downloadData`, validated with `@freemarket/schema`), `swarmImageUrl`.
+- `src/lib/swarm.js` — `fetchSwarmJson` / `fetchShopProfile` / `fetchListingMetadata` (bee-js `downloadData`, validated with `@freeemarket/schema`), `swarmImageUrl`.
 - `src/hooks/useShop.js` — `shops(seller).metadata` → Swarm `ShopProfile`.
 - `src/hooks/useListings.js` — `ListingCreated` logs → `listings(id)` → ERC-20 `decimals()`/`symbol()` → Swarm `ListingMetadata`. Prices format via `formatUnits` (decimals read per-token; never hardcoded — falls back to the metadata `payment` hint, then 18).
 - `src/checkout/Checkout.jsx` — real `approve` (if needed) → `buy(listingId)` → parse `OrderFunded` for `orderId` → encrypted-address boundary.
-- `src/messaging/index.js` — `sendEncryptedAddress(...)` + `receiveTracking(...)`: the PSS integration points, **wired live** to `@freemarket/messaging`. They resolve the counterparty key via ContactRegistry (`src/lib/contactRegistry.js`), construct `BeeTransport` only behind the config gate, and sign envelopes with the connected wallet (`useWalletClient`). When ContactRegistry / a full Bee node / a postage batch / (for tracking) the buyer's unlocked private key is missing, they return a graceful stub (`{ stub: true }`). The plaintext address is never logged. See CLAUDE.md §5.
+- `src/messaging/index.js` — `sendEncryptedAddress(...)` + `receiveTracking(...)`: the PSS integration points, **wired live** to `@freeemarket/messaging`. They resolve the counterparty key via ContactRegistry (`src/lib/contactRegistry.js`), construct `BeeTransport` only behind the config gate, and sign envelopes with the connected wallet (`useWalletClient`). When ContactRegistry / a full Bee node / a postage batch / (for tracking) the buyer's unlocked private key is missing, they return a graceful stub (`{ stub: true }`). The plaintext address is never logged. See CLAUDE.md §5.
 - `src/Storefront.jsx` / `src/ui.jsx` — the ported white-label engine (theme tokens, hero, grid, product modal), now data-driven.
 
-### `@freemarket/schema` resolution
+### `@freeemarket/schema` resolution
 
-Imported via `"@freemarket/schema": "file:../../packages/schema"`. That package
+Imported via `"@freeemarket/schema": "file:../../packages/schema"`. That package
 exposes a built `dist/index.js` through its `exports` field, so Vite resolves
 the JS runtime validators (`isShopProfile`, `isListingMetadata`) directly — no
 TS source import needed. (If you edit the schema, run its `npm run build`.)
@@ -81,5 +81,5 @@ to provide these so the browser build bundles cleanly. We only call bee-js's
 
 - [x] Port to the Vite + wagmi v2 + viem + bee-js stack.
 - [x] Replace mock `listings` with on-chain reads + Swarm metadata fetch.
-- [x] Wire checkout: `usdc.approve` → `market.buy`. Encrypt address + PSS send is **live** via `@freemarket/messaging` at `src/messaging/index.js` (graceful stub when ContactRegistry / Bee node / postage batch unconfigured); buyer can also read the seller's encrypted tracking code (CLAUDE.md §5).
+- [x] Wire checkout: `usdc.approve` → `market.buy`. Encrypt address + PSS send is **live** via `@freeemarket/messaging` at `src/messaging/index.js` (graceful stub when ContactRegistry / Bee node / postage batch unconfigured); buyer can also read the seller's encrypted tracking code (CLAUDE.md §5).
 - [x] Replace glyph placeholders with Swarm-hosted images (with emoji fallback).

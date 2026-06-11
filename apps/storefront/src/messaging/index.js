@@ -1,6 +1,6 @@
 /**
  * Encrypted shipping-address delivery + buyer-side tracking read — LIVE, backed
- * by `@freemarket/messaging`, with a graceful STUB fallback when unconfigured.
+ * by `@freeemarket/messaging`, with a graceful STUB fallback when unconfigured.
  *
  * This is the single integration point for the private-message flow described in
  * CLAUDE.md §5. The storefront checkout calls `sendEncryptedAddress(...)` after
@@ -11,7 +11,7 @@
  * LIVE FLOW (buyer → seller, shipping address):
  *   1. Resolve the seller's ECIES public key — passed in, else looked up via
  *      SwarmChat's `ContactRegistry` (src/lib/contactRegistry.js) by `seller`.
- *   2. `@freemarket/messaging` builds `{ orderId, name, address }` and
+ *   2. `@freeemarket/messaging` builds `{ orderId, name, address }` and
  *      ECIES-encrypts it to the seller's key (eciesjs — MetaMask's native
  *      eth_decrypt / eth_getEncryptionPublicKey are DEPRECATED, CLAUDE.md §3).
  *   3. It seals a signed envelope (the buyer's wallet `signMessage`) so the
@@ -32,12 +32,12 @@ import {
   BeeTransport,
   sendShippingAddress,
   receiveShipmentUpdate,
-} from '@freemarket/messaging';
+} from '@freeemarket/messaging';
 import { resolvePublicKey } from '../lib/contactRegistry.js';
 import { CONTACT_REGISTRY } from '../config.js';
 
 /**
- * Build a `SignDigest` for `@freemarket/messaging` from a wagmi/viem wallet
+ * Build a `SignDigest` for `@freeemarket/messaging` from a wagmi/viem wallet
  * client. The library signs the envelope digest as a raw EIP-191 personal
  * message; viem's `signMessage({ message: { raw } })` produces exactly that.
  *

@@ -19,7 +19,7 @@
  */
 import React, { useState } from 'react';
 import { Store, ShoppingBag, Truck } from 'lucide-react';
-import { describeShippingPolicy } from '@freemarket/schema';
+import { describeShippingPolicy } from '@freeemarket/schema';
 import { Styles, Pill } from './ui.jsx';
 import Checkout from './checkout/Checkout.jsx';
 import { useShop } from './hooks/useShop.js';

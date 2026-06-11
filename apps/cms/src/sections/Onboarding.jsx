@@ -12,7 +12,7 @@
 import React, { useEffect, useState } from 'react';
 import { Store, ArrowRight, Check } from 'lucide-react';
 import { useWriteContract, usePublicClient } from 'wagmi';
-import { assertShopProfile, SchemaValidationError } from '@freemarket/schema';
+import { assertShopProfile, SchemaValidationError } from '@freeemarket/schema';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { handleRegistryAbi } from '../abi/handleRegistry.js';
 import { useShopProfile } from '../hooks/useShopProfile.js';

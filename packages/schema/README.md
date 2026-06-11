@@ -1,4 +1,4 @@
-# @freemarket/schema
+# @freeemarket/schema
 
 Shared Swarm JSON schema for all FreeeMarket clients (CMS + storefronts).
 
@@ -40,7 +40,7 @@ import {
   assertListingMetadata,
   isShopProfile,
   type ShopProfile,
-} from '@freemarket/schema';
+} from '@freeemarket/schema';
 
 // Type guard — narrows on success, returns false on failure.
 if (isShopProfile(json)) {

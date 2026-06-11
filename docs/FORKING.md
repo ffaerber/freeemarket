@@ -27,7 +27,7 @@ You don't have to change any code to run an independent market. Each deployment
 is a standalone contract that **you** own and arbitrate.
 
 ```sh
-git clone <your-fork> && cd freemarket
+git clone <your-fork> && cd freeemarket
 # deploy your own Marketplace (you become the owner/arbiter):
 #   see contracts/script/Deploy.s.sol + docs/DEPLOY.md
 ```

@@ -3,7 +3,7 @@
  *
  * This is a DISPLAY/ENTRY list only (not exhaustive — covers the EU/EEA + common
  * destinations) so the buyer can pick their country. The actual ship/no-ship
- * decision is made by `canShipTo` from @freemarket/schema against the shop's
+ * decision is made by `canShipTo` from @freeemarket/schema against the shop's
  * ADVISORY policy (CLAUDE.md §5) — the country travels off-chain inside the
  * already-encrypted address payload, never on-chain.
  */

@@ -1,5 +1,5 @@
 {
-  "name": "@freemarket/schema",
+  "name": "@freeemarket/schema",
   "version": "0.1.0",
   "description": "Shared Swarm JSON schema (TS types + runtime validation) for FreeeMarket clients.",
   "license": "MIT",

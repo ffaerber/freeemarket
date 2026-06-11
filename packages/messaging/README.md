@@ -1,4 +1,4 @@
-# @freemarket/messaging
+# @freeemarket/messaging
 
 Bidirectional encrypted messaging over **Swarm PSS** for FreeeMarket. Implements
 the private-message flow in [CLAUDE.md §5](../../CLAUDE.md): each payload is
@@ -75,7 +75,7 @@ import {
   InMemoryTransport, BeeTransport, topicForOrder,
   sendShippingAddress, receiveShippingAddress,   // buyer → seller
   sendShipmentUpdate, receiveShipmentUpdate,     // seller → buyer
-} from '@freemarket/messaging';
+} from '@freeemarket/messaging';
 ```
 
 `signMessage` is injected as `(digestHex) => Promise<sigHex>`, so it works with a
