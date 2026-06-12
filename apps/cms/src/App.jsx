@@ -50,9 +50,10 @@ function Wordmark() {
  * usePostageBatch + the node-health check read.
  */
 function SwarmConnect() {
-  // stampMode="create" (0.4.0): the merchant can BUY a postage stamp in the modal
-  // (needs the Bee node's wallet funded with xDAI + xBZZ), not just pick one.
-  return <SwarmConnectButton stampMode="create" />;
+  // Default 0.5.0 requirements: wallet xDAI + select an existing postage stamp
+  // (no node-wallet funding step). To let the merchant BUY a stamp in the modal,
+  // pass requirements={{ xbzz: true }}.
+  return <SwarmConnectButton />;
 }
 
 /** Centered connect / unconfigured screen (no console until ready). */
