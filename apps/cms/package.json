@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@ethersphere/bee-js": "^8.3.1",
-    "@ffaerber/swarm-connect": "^0.4.0",
+    "@ffaerber/swarm-connect": "^0.5.0",
     "@freeemarket/messaging": "file:../../packages/messaging",
     "@freeemarket/schema": "file:../../packages/schema",
     "@tanstack/react-query": "^5.59.0",
