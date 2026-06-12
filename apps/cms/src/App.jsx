@@ -56,6 +56,24 @@ function SwarmConnect() {
   return <SwarmConnectButton />;
 }
 
+/** Labelled Bee-node URL input (sidebar + onboarding). Writes via useBeeUrl. */
+function BeeNodeField({ beeUrl, setBeeUrl, style }) {
+  return (
+    <div style={style}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--fg-soft)', marginBottom: 6 }}>bee node</div>
+      <input
+        className="fm-input fm-input--mono"
+        key={beeUrl}
+        defaultValue={beeUrl}
+        onBlur={(e) => setBeeUrl(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+        placeholder="http://localhost:1633"
+        style={{ fontSize: 12, padding: '9px 11px' }}
+      />
+    </div>
+  );
+}
+
 /** Centered connect / unconfigured screen (no console until ready). */
 function Gate({ children }) {
   return (
@@ -108,7 +126,11 @@ export default function App() {
   if (needsOnboarding) {
     return (
       <div className="cms-content" style={{ maxWidth: 720, margin: '0 auto', paddingTop: 40 }}>
-        <div style={{ marginBottom: 24 }}><Wordmark /></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
+          <Wordmark />
+          <SwarmConnect />
+        </div>
+        <BeeNodeField beeUrl={beeUrl} setBeeUrl={setBeeUrl} style={{ maxWidth: 360, marginBottom: 18 }} />
         <Onboarding onDone={() => setTab('listings')} />
       </div>
     );
@@ -145,17 +167,7 @@ export default function App() {
           ))}
         </nav>
         <div className="side-foot">
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--fg-soft)', marginBottom: 6 }}>bee node</div>
-            <input
-              className="fm-input fm-input--mono"
-              defaultValue={beeUrl}
-              onBlur={(e) => setBeeUrl(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-              placeholder="http://localhost:1633"
-              style={{ fontSize: 11, padding: '8px 10px' }}
-            />
-          </div>
+          <BeeNodeField beeUrl={beeUrl} setBeeUrl={setBeeUrl} style={{ marginBottom: 10 }} />
           <div className="fm-hud" style={{ padding: '12px 14px', fontSize: 11 }}>
             <div className="fm-hud-row" style={{ padding: '4px 0' }}>
               <span className="fm-hud-key">node</span>
