@@ -129,7 +129,12 @@ export default function Onboarding({ onDone }) {
           {batchChecking ? (
             <>Checking <code>{beeUrl}</code> for a postage stamp…</>
           ) : batchError ? (
-            <><strong>Can't reach your Bee node</strong> at <code>{beeUrl}</code> ({batchError}). Set the node URL in the Swarm connect button, and make sure the node allows CORS from this site.</>
+            <>
+              <strong>Bee node blocked (CORS).</strong> <code>{beeUrl}</code> didn't allow this site ({batchError}).
+              If the node is running, allow this origin on it — start Bee with{' '}
+              <code>--cors-allowed-origins='{typeof window !== 'undefined' ? window.location.origin : ''}'</code> (or <code>'*'</code>),
+              or set <code>cors-allowed-origins</code> in its config, then retry. Otherwise set the node URL above.
+            </>
           ) : (
             <><strong>No usable postage stamp</strong> on <code>{beeUrl}</code>. Buy one via the Swarm connect button (or the Bee API), or set <code>VITE_POSTAGE_BATCH_ID</code>. Registering uploads your profile JSON to Swarm. See CLAUDE.md §5.</>
           )}

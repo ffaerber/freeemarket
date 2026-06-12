@@ -199,7 +199,7 @@ export default function App() {
           {!uploadsReady && !batchChecking && (
             <Banner>
               {batchError
-                ? <>Can't reach your Bee node at <code>{batchBeeUrl}</code> ({batchError}). Set the node URL via the Swarm connect button, and allow CORS from this site.</>
+                ? <>Bee node blocked (CORS): <code>{batchBeeUrl}</code> didn't allow this site ({batchError}). Allow this origin on the node — start Bee with <code>--cors-allowed-origins='{typeof window !== 'undefined' ? window.location.origin : ''}'</code> (or <code>'*'</code>).</>
                 : <>No usable postage stamp on <code>{batchBeeUrl}</code>. Buy one via the Swarm connect button, or set <code>VITE_POSTAGE_BATCH_ID</code>. Saving a profile or listing needs a stamp.</>}
             </Banner>
           )}
