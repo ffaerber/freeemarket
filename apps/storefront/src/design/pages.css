@@ -66,3 +66,8 @@
   --display: var(--font-serif);
   --body: var(--font-sans);
 }
+
+/* Same fix as the CMS: the swarm-connect modal (position:fixed, no portal) must
+   center on the viewport, so the sticky nav must not establish a containing block
+   via backdrop-filter. Drop the blur; keep an opaque background. */
+.fm-nav { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: rgba(255,255,255,0.96); }

@@ -37,3 +37,10 @@
   --display: var(--font-serif);
   --body: var(--font-sans);
 }
+
+/* The swarm-connect modal is position:fixed but does NOT portal to <body>. A
+   `backdrop-filter` on an ancestor creates a containing block for fixed-position
+   descendants, trapping the modal in the topbar (top-right, overflowing). Drop
+   the blur on the sticky topbar (keep an opaque bg) so the modal centers on the
+   viewport. */
+.cms-topbar { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: #fff; }
