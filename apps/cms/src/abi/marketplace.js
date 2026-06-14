@@ -86,6 +86,17 @@ export const marketplaceAbi = [
       { name: 'by', type: 'address', indexed: true },
     ],
   },
+  {
+    type: 'event',
+    name: 'OrderRated',
+    inputs: [
+      { name: 'orderId', type: 'uint256', indexed: true },
+      { name: 'seller', type: 'address', indexed: true },
+      { name: 'buyer', type: 'address', indexed: true },
+      { name: 'quality', type: 'uint8', indexed: false },
+      { name: 'deliverySpeed', type: 'uint8', indexed: false },
+    ],
+  },
 
   // --- Shop write/read ---
   {
@@ -200,6 +211,32 @@ export const marketplaceAbi = [
       { name: 'refundBuyer', type: 'bool' },
     ],
     outputs: [],
+  },
+
+  // --- On-chain star ratings (CLAUDE.md §reviews; read-only for the seller) ---
+  {
+    // Per-order rating the buyer left: quality 0 == not yet rated.
+    type: 'function',
+    name: 'ratings',
+    stateMutability: 'view',
+    inputs: [{ name: '', type: 'uint256' }],
+    outputs: [
+      { name: 'quality', type: 'uint8' },
+      { name: 'deliverySpeed', type: 'uint8' },
+      { name: 'ratedAt', type: 'uint64' },
+    ],
+  },
+  {
+    // Per-seller aggregate (avg = sum / count).
+    type: 'function',
+    name: 'sellerRatings',
+    stateMutability: 'view',
+    inputs: [{ name: '', type: 'address' }],
+    outputs: [
+      { name: 'count', type: 'uint256' },
+      { name: 'qualitySum', type: 'uint256' },
+      { name: 'deliverySum', type: 'uint256' },
+    ],
   },
 
   // --- Admin / config views ---

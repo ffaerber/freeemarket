@@ -31,6 +31,20 @@ import { Card, Button, GhostButton, SectionHeader, Banner, ErrorNote, Pill } fro
 
 const STATE = { NONE: 0, FUNDED: 1, COMPLETED: 2, DISPUTED: 3, REFUNDED: 4 };
 
+/** Compact read-only star row (n of 5) for displaying a buyer's rating. */
+function StarRow({ value, label }) {
+  const n = Math.max(0, Math.min(5, Number(value) || 0));
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5 }}>
+      <span style={{ color: 'var(--muted)' }}>{label}</span>
+      <span style={{ color: 'var(--accent)', letterSpacing: 1 }} aria-label={`${n} of 5`}>
+        {'★'.repeat(n)}
+        <span style={{ color: 'var(--border)' }}>{'★'.repeat(5 - n)}</span>
+      </span>
+    </span>
+  );
+}
+
 /** localStorage key for the off-chain "shipped" memo (no on-chain equivalent). */
 const SHIPPED_KEY = 'fmkt.cms.shipped';
 
@@ -198,6 +212,19 @@ function OrderRow({ order, autoReleasePeriod, isArbiter, sellerAddress, privateK
   const oid = order.orderId.toString();
   const shipped = Boolean(shippedMap[oid]);
 
+  // Buyer's on-chain rating for this order (CLAUDE.md §reviews), shown read-only
+  // once the order is Completed. quality 0 == not yet rated.
+  const ratingRead = useReadContract({
+    abi: marketplaceAbi,
+    address: MARKETPLACE_ADDRESS,
+    functionName: 'ratings',
+    args: [order.orderId],
+    chainId: GNOSIS_CHAIN_ID,
+    query: { enabled: order.state === STATE.COMPLETED },
+  });
+  const rating = ratingRead.data; // [quality, deliverySpeed, ratedAt]
+  const hasRating = rating && Number(rating[0]) > 0;
+
   // Timeout eligibility: Funded + (now >= fundedAt + autoReleasePeriod).
   const nowSec = BigInt(Math.floor(Date.now() / 1000));
   const releaseAt = order.fundedAt + autoReleasePeriod;
@@ -293,6 +320,18 @@ function OrderRow({ order, autoReleasePeriod, isArbiter, sellerAddress, privateK
           {fundedDate && (
             <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 3 }}>
               funded {fundedDate.toLocaleString()}
+            </div>
+          )}
+          {order.state === STATE.COMPLETED && (
+            <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+              {hasRating ? (
+                <>
+                  <StarRow label="quality" value={rating[0]} />
+                  <StarRow label="delivery" value={rating[1]} />
+                </>
+              ) : (
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>buyer hasn't rated yet</span>
+              )}
             </div>
           )}
         </div>

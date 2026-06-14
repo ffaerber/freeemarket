@@ -104,11 +104,38 @@ contract Marketplace is ReentrancyGuard, Ownable2Step, Pausable {
         OrderState state;
     }
 
+    /// @notice A buyer's on-chain star rating for a completed order. Text-free
+    ///         by design (CLAUDE.md §reviews): two 1–5 star scores only, so the
+    ///         rating is cheap to store and trivial for any storefront/indexer
+    ///         to aggregate. `quality == 0` marks an order as not-yet-rated (1–5
+    ///         is the only valid stored range), which also doubles as the
+    ///         "already rated" guard — each order can be rated exactly once.
+    struct Rating {
+        uint8  quality;       // 1–5 stars: item matched its listing / condition
+        uint8  deliverySpeed; // 1–5 stars: how fast the item arrived
+        uint64 ratedAt;       // block timestamp the rating was recorded
+    }
+
+    /// @notice Running per-seller rating tallies, so a storefront can show a
+    ///         seller's average stars with a SINGLE view call (no event scan):
+    ///         avg quality = qualitySum / count, avg delivery = deliverySum /
+    ///         count (guard count > 0 off-chain). Sums use uint256 and can never
+    ///         overflow in practice (5 * 2^256-worth of orders is unreachable).
+    struct SellerRatings {
+        uint256 count;        // number of orders this seller has been rated on
+        uint256 qualitySum;   // Σ quality stars across all of the seller's ratings
+        uint256 deliverySum;  // Σ deliverySpeed stars across all of the seller's ratings
+    }
+
     uint256 public nextListingId = 1;
     uint256 public nextOrderId = 1;
     mapping(address => Shop) public shops;
     mapping(uint256 => Listing) public listings;
     mapping(uint256 => Order) public orders;
+    /// @notice orderId => the buyer's immutable star rating (quality 0 == unrated).
+    mapping(uint256 => Rating) public ratings;
+    /// @notice seller => aggregate rating tallies for cheap average reads.
+    mapping(address => SellerRatings) public sellerRatings;
 
     event ShopRegistered(address indexed seller, bytes32 metadata);
     event TokenAccepted(address indexed token, bool accepted);
@@ -135,6 +162,16 @@ contract Marketplace is ReentrancyGuard, Ownable2Step, Pausable {
     event OrderCompleted(uint256 indexed orderId, uint256 payout);
     event OrderRefunded(uint256 indexed orderId, uint256 amount);
     event DisputeOpened(uint256 indexed orderId, address indexed by);
+    /// @notice Emitted when the buyer rates a completed order. `seller` is indexed
+    ///         so a storefront/indexer can cheaply pull every rating for a shop;
+    ///         `quality`/`deliverySpeed` are the 1–5 star scores (no free text).
+    event OrderRated(
+        uint256 indexed orderId,
+        address indexed seller,
+        address indexed buyer,
+        uint8 quality,
+        uint8 deliverySpeed
+    );
     event AutoReleasePeriodUpdated(uint256 period);
 
     /// @param initialTokens ERC-20s to seed the accepted-token allowlist with.
@@ -333,6 +370,46 @@ contract Marketplace is ReentrancyGuard, Ownable2Step, Pausable {
         } else {
             _release(orderId, o);
         }
+    }
+
+    // --- Ratings (on-chain stars, no free text) ---
+
+    /// @notice Buyer rates a COMPLETED order with two 1–5 star scores: item
+    ///         `quality` and `deliverySpeed`. Ratings are deliberately text-free
+    ///         (stars only) so they stay cheap on-chain and any storefront can
+    ///         aggregate them without parsing prose.
+    ///
+    /// @dev Anti-fraud: only the order's `buyer` can rate, and only once the
+    ///      order has actually settled to the seller (`state == Completed`, via
+    ///      either `confirmReceipt` or `claimAfterTimeout`). This makes every
+    ///      rating a VERIFIED purchase — money really moved buyer→seller — so
+    ///      nobody can spam stars without paying. Each order is rateable exactly
+    ///      ONCE and the rating is immutable thereafter (the stored `quality`
+    ///      being non-zero is the already-rated guard).
+    ///
+    ///      Note: ratings are intentionally NOT gated by `whenNotPaused` — they
+    ///      neither move money nor create intake, so pausing must not block a
+    ///      buyer from rating an already-completed order.
+    function rateOrder(uint256 orderId, uint8 quality, uint8 deliverySpeed) external {
+        Order storage o = orders[orderId];
+        require(o.state == OrderState.Completed, "not completed");
+        require(o.buyer == msg.sender, "not buyer");
+        require(ratings[orderId].quality == 0, "already rated");
+        require(quality >= 1 && quality <= 5, "quality 1-5");
+        require(deliverySpeed >= 1 && deliverySpeed <= 5, "delivery 1-5");
+
+        ratings[orderId] = Rating({
+            quality: quality,
+            deliverySpeed: deliverySpeed,
+            ratedAt: uint64(block.timestamp)
+        });
+
+        SellerRatings storage sr = sellerRatings[o.seller];
+        sr.count += 1;
+        sr.qualitySum += quality;
+        sr.deliverySum += deliverySpeed;
+
+        emit OrderRated(orderId, o.seller, msg.sender, quality, deliverySpeed);
     }
 
     // --- Admin: circuit breaker (HARDENING 4: Pausable on INTAKE only) ---

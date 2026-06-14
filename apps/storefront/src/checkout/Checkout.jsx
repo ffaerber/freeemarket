@@ -23,9 +23,10 @@ import {
   useWalletClient,
 } from 'wagmi';
 import { parseEventLogs } from 'viem';
-import { ShoppingBag, X, Check, Lock, Wallet, Truck, ArrowRight, AlertTriangle } from 'lucide-react';
+import { ShoppingBag, X, Check, Lock, Wallet, Truck, ArrowRight, AlertTriangle, Star } from 'lucide-react';
 import { canShipTo, describeShippingPolicy } from '@freeemarket/schema';
 import { marketplaceAbi } from '../abi/marketplace.js';
+import { Stars } from '../ui/Stars.jsx';
 import { erc20Abi } from '../abi/erc20.js';
 import { COUNTRIES, countryName } from './countries.js';
 import { sendEncryptedAddress, receiveTracking, makeSignDigest } from '../messaging/index.js';
@@ -119,6 +120,18 @@ export default function Checkout({ shop, item, onClose }) {
   const [trackBusy, setTrackBusy] = useState(false);
   const [trackResult, setTrackResult] = useState(null);
   const [trackError, setTrackError] = useState(null);
+
+  // Buyer's post-delivery flow: confirm receipt (releases escrow → order
+  // Completed) then leave an on-chain star rating (CLAUDE.md §reviews). Rating
+  // is only accepted by the contract once the order is Completed.
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [confirmError, setConfirmError] = useState(null);
+  const [qStars, setQStars] = useState(0);
+  const [dStars, setDStars] = useState(0);
+  const [rateBusy, setRateBusy] = useState(false);
+  const [rated, setRated] = useState(false);
+  const [rateError, setRateError] = useState(null);
 
   const { writeContractAsync } = useWriteContract();
 
@@ -251,6 +264,46 @@ export default function Checkout({ shop, item, onClose }) {
       setTrackError(err);
     } finally {
       setTrackBusy(false);
+    }
+  }
+
+  async function doConfirmReceipt() {
+    setConfirmBusy(true);
+    setConfirmError(null);
+    try {
+      const hash = await writeContractAsync({
+        abi: marketplaceAbi,
+        address: MARKETPLACE_ADDRESS,
+        functionName: 'confirmReceipt',
+        args: [orderId],
+        chainId: GNOSIS_CHAIN_ID,
+      });
+      await publicClient.waitForTransactionReceipt({ hash });
+      setConfirmed(true);
+    } catch (err) {
+      setConfirmError(err);
+    } finally {
+      setConfirmBusy(false);
+    }
+  }
+
+  async function doRate() {
+    setRateBusy(true);
+    setRateError(null);
+    try {
+      const hash = await writeContractAsync({
+        abi: marketplaceAbi,
+        address: MARKETPLACE_ADDRESS,
+        functionName: 'rateOrder',
+        args: [orderId, qStars, dStars],
+        chainId: GNOSIS_CHAIN_ID,
+      });
+      await publicClient.waitForTransactionReceipt({ hash });
+      setRated(true);
+    } catch (err) {
+      setRateError(err);
+    } finally {
+      setRateBusy(false);
     }
   }
 
@@ -435,6 +488,63 @@ export default function Checkout({ shop, item, onClose }) {
                   </div>
                 )}
                 <ErrorNote error={trackError} />
+              </div>
+            )}
+
+            {/* Confirm delivery + leave an ON-CHAIN star rating. Confirming
+                releases escrow to the seller (order → Completed); only then does
+                the contract accept the buyer's rating (CLAUDE.md §reviews). */}
+            {orderId != null && (
+              <div style={{ marginTop: 16, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border)', textAlign: 'left' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <Star size={15} style={{ color: 'var(--accent)' }} />
+                  <span style={{ fontFamily: 'var(--display)', fontSize: 16 }}>Confirm &amp; rate</span>
+                </div>
+
+                {!confirmed && !rated && (
+                  <>
+                    <div style={{ color: 'var(--muted)', fontSize: 12, lineHeight: 1.5, marginBottom: 8 }}>
+                      Got the package? Confirm delivery to release the escrow to {shop.name}, then rate the order.
+                    </div>
+                    <PrimaryButton onClick={doConfirmReceipt} disabled={confirmBusy}>
+                      {confirmBusy ? 'Confirming…' : 'Confirm delivery'} <ArrowRight size={16} />
+                    </PrimaryButton>
+                    <ErrorNote error={confirmError} />
+                  </>
+                )}
+
+                {confirmed && !rated && (
+                  <>
+                    <div style={{ color: 'var(--muted)', fontSize: 12, lineHeight: 1.5, marginBottom: 10 }}>
+                      Escrow released — thanks! Leave a quick on-chain rating so other buyers can see how this shop did.
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: 13 }}>Quality</span>
+                      <Stars value={qStars} onChange={setQStars} size={20} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <span style={{ fontSize: 13 }}>Delivery speed</span>
+                      <Stars value={dStars} onChange={setDStars} size={20} />
+                    </div>
+                    <PrimaryButton onClick={doRate} disabled={rateBusy || qStars < 1 || dStars < 1}>
+                      {rateBusy ? 'Submitting…' : 'Submit rating'} <ArrowRight size={16} />
+                    </PrimaryButton>
+                    <ErrorNote error={rateError} />
+                  </>
+                )}
+
+                {rated && (
+                  <div style={{ color: 'var(--text)', fontSize: 13, lineHeight: 1.6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <Check size={16} style={{ color: 'var(--accent)' }} />
+                      <strong>Rating recorded on-chain</strong>
+                    </div>
+                    <div style={{ display: 'flex', gap: 16, color: 'var(--muted)' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Quality <Stars value={qStars} size={14} /></span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Delivery <Stars value={dStars} size={14} /></span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
