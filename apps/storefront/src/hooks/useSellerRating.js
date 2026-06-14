@@ -20,11 +20,28 @@ export function useSellerRating(seller) {
     query: { enabled: Boolean(MARKETPLACE_ADDRESS && seller) },
   });
 
+  // Public units-sold count (separate from rated-order count): how many of the
+  // seller's orders actually paid out. Visible to any browsing buyer.
+  const salesRead = useReadContract({
+    abi: marketplaceAbi,
+    address: MARKETPLACE_ADDRESS || undefined,
+    functionName: 'sellerSales',
+    args: seller ? [seller] : undefined,
+    chainId: GNOSIS_CHAIN_ID,
+    query: { enabled: Boolean(MARKETPLACE_ADDRESS && seller) },
+  });
+
   const summary = summarizeSellerRating(read.data);
+  const salesCount = salesRead.data != null ? Number(salesRead.data) : 0;
   return {
     ...summary,
+    salesCount,
+    hasSales: salesCount > 0,
     hasRatings: summary.count > 0,
-    isLoading: read.isLoading,
-    refetch: read.refetch,
+    isLoading: read.isLoading || salesRead.isLoading,
+    refetch: () => {
+      read.refetch?.();
+      salesRead.refetch?.();
+    },
   };
 }

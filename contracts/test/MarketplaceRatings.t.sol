@@ -180,6 +180,50 @@ contract MarketplaceRatingsTest is MarketplaceTest {
         assertEq(deliverySpeed, 5);
     }
 
+    // --- public sales counter (units sold) ---
+
+    function test_sellerSales_incrementsOnConfirmReceipt() public {
+        assertEq(market.sellerSales(seller), 0);
+        _completed(PRICE); // funds + confirmReceipt
+        assertEq(market.sellerSales(seller), 1);
+    }
+
+    function test_sellerSales_incrementsOnClaimAfterTimeout() public {
+        uint256 id = _listing(PRICE);
+        uint256 orderId = _fund(id);
+        vm.warp(block.timestamp + market.autoReleasePeriod());
+        vm.prank(seller);
+        market.claimAfterTimeout(orderId);
+        assertEq(market.sellerSales(seller), 1);
+    }
+
+    function test_sellerSales_incrementsOnDisputeResolvedForSeller() public {
+        uint256 id = _listing(PRICE);
+        uint256 orderId = _fund(id);
+        vm.prank(buyer);
+        market.openDispute(orderId);
+        vm.prank(owner);
+        market.resolveDispute(orderId, false); // pay seller
+        assertEq(market.sellerSales(seller), 1);
+    }
+
+    function test_sellerSales_notCountedOnRefund() public {
+        uint256 id = _listing(PRICE);
+        uint256 orderId = _fund(id);
+        vm.prank(buyer);
+        market.openDispute(orderId);
+        vm.prank(owner);
+        market.resolveDispute(orderId, true); // refund buyer
+        assertEq(market.sellerSales(seller), 0);
+    }
+
+    function test_sellerSales_accumulatesAcrossOrders() public {
+        _completed(PRICE);
+        _completed(PRICE);
+        _completed(PRICE);
+        assertEq(market.sellerSales(seller), 3);
+    }
+
     // --- fuzz: any valid pair stores + aggregates correctly ---
 
     function testFuzz_rateOrder_validScores(uint8 q, uint8 d) public {

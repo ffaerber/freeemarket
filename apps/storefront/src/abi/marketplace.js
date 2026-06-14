@@ -131,6 +131,14 @@ export const marketplaceAbi = [
     ],
   },
   {
+    // Public units-sold count (Completed orders that paid the seller).
+    type: 'function',
+    name: 'sellerSales',
+    stateMutability: 'view',
+    inputs: [{ name: '', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
     type: 'function',
     name: 'orders',
     stateMutability: 'view',

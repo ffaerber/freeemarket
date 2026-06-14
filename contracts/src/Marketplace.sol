@@ -136,6 +136,13 @@ contract Marketplace is ReentrancyGuard, Ownable2Step, Pausable {
     mapping(uint256 => Rating) public ratings;
     /// @notice seller => aggregate rating tallies for cheap average reads.
     mapping(address => SellerRatings) public sellerRatings;
+    /// @notice seller => number of units SOLD (orders whose escrow actually
+    ///         released to the seller — i.e. Completed orders, via confirmReceipt,
+    ///         claimAfterTimeout, or a dispute resolved in the seller's favor).
+    ///         A public single-read sales count any storefront can show; refunded
+    ///         orders never count (no money reached the seller). One order == one
+    ///         unit (buy() decrements stock by 1), so this is units sold.
+    mapping(address => uint256) public sellerSales;
 
     event ShopRegistered(address indexed seller, bytes32 metadata);
     event TokenAccepted(address indexed token, bool accepted);
@@ -343,6 +350,11 @@ contract Marketplace is ReentrancyGuard, Ownable2Step, Pausable {
 
     function _release(uint256 orderId, Order storage o) internal {
         o.state = OrderState.Completed;
+        // A sale only counts once escrow actually settles to the seller. This
+        // runs for confirmReceipt, claimAfterTimeout, and resolveDispute(pay
+        // seller) — but NOT for refunds, which take the Refunded branch and
+        // never call _release. Effect-before-interaction (set before transfer).
+        sellerSales[o.seller] += 1;
         // No platform fee: the seller receives 100% of the escrowed amount.
         uint256 payout = o.amount;
         IERC20(o.token).safeTransfer(o.seller, payout);

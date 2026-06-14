@@ -127,6 +127,30 @@ export default function OrdersSection() {
   const isArbiter =
     Boolean(address && ownerRead.data && getAddress(ownerRead.data) === getAddress(address));
 
+  // Public reputation for this shop: units sold + aggregate stars (CLAUDE.md
+  // §reviews). Same values any buyer sees on the storefront.
+  const salesRead = useReadContract({
+    abi: marketplaceAbi,
+    address: MARKETPLACE_ADDRESS || undefined,
+    functionName: 'sellerSales',
+    args: address ? [address] : undefined,
+    chainId: GNOSIS_CHAIN_ID,
+    query: { enabled: Boolean(MARKETPLACE_ADDRESS && address) },
+  });
+  const ratingsRead = useReadContract({
+    abi: marketplaceAbi,
+    address: MARKETPLACE_ADDRESS || undefined,
+    functionName: 'sellerRatings',
+    args: address ? [address] : undefined,
+    chainId: GNOSIS_CHAIN_ID,
+    query: { enabled: Boolean(MARKETPLACE_ADDRESS && address) },
+  });
+  const soldCount = salesRead.data != null ? Number(salesRead.data) : 0;
+  const ratingCount = ratingsRead.data ? Number(ratingsRead.data[0]) : 0;
+  const avgStars = ratingCount
+    ? Math.round(((Number(ratingsRead.data[1]) + Number(ratingsRead.data[2])) / (ratingCount * 2)) * 10) / 10
+    : 0;
+
   return (
     <div>
       <SectionHeader
@@ -137,6 +161,22 @@ export default function OrdersSection() {
 
       {isArbiter && <Banner tone="info">You are the contract arbiter (owner) — dispute resolution controls are enabled.</Banner>}
       {error && <Banner tone="error">Couldn't load orders: {error.shortMessage || error.message}</Banner>}
+
+      {/* Public reputation — units sold + average stars (what buyers see). */}
+      <Card style={{ padding: 14, marginBottom: 12, display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)' }}>{soldCount}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{soldCount === 1 ? 'order sold' : 'orders sold'}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)' }}>
+            {ratingCount ? `★ ${avgStars.toFixed(1)}` : '—'}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+            {ratingCount ? `avg · ${ratingCount} rating${ratingCount === 1 ? '' : 's'}` : 'no ratings yet'}
+          </div>
+        </div>
+      </Card>
 
       {/* Local keystore unlock — the merchant's ECIES private key, runtime only. */}
       <Card style={{ padding: 14, marginBottom: 12 }}>

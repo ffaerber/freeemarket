@@ -182,6 +182,12 @@ function StorefrontView({ shop, handle, groups, isLoading, error }) {
                 </span>
               </div>
             )}
+            {rating.hasSales && (
+              <div className="fm-hud-row">
+                <span className="fm-hud-key">sold</span>
+                <span className="fm-hud-val">{rating.salesCount} {rating.salesCount === 1 ? 'order' : 'orders'}</span>
+              </div>
+            )}
             <div className="fm-hud-row"><span className="fm-hud-key">listings</span><span className="fm-hud-val fm-hud-val--neon">{totalListings} active</span></div>
             <div className="fm-hud-row"><span className="fm-hud-key">settlement</span><span className="fm-hud-val">100 % to seller</span></div>
             <div className="fm-hud-row"><span className="fm-hud-key">network</span><span className="fm-hud-val">gnosis · 100</span></div>
