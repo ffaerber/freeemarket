@@ -82,4 +82,75 @@ export const marketplaceAbi = [
     inputs: [{ name: 'orderId', type: 'uint256' }],
     outputs: [],
   },
+  // --- On-chain star ratings (CLAUDE.md §reviews) ---
+  {
+    type: 'event',
+    name: 'OrderRated',
+    inputs: [
+      { name: 'orderId', type: 'uint256', indexed: true },
+      { name: 'seller', type: 'address', indexed: true },
+      { name: 'buyer', type: 'address', indexed: true },
+      { name: 'quality', type: 'uint8', indexed: false },
+      { name: 'deliverySpeed', type: 'uint8', indexed: false },
+    ],
+  },
+  {
+    // Buyer rates a COMPLETED order: two 1–5 star scores, once, immutable.
+    type: 'function',
+    name: 'rateOrder',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'orderId', type: 'uint256' },
+      { name: 'quality', type: 'uint8' },
+      { name: 'deliverySpeed', type: 'uint8' },
+    ],
+    outputs: [],
+  },
+  {
+    // Per-order rating: quality 0 == not yet rated.
+    type: 'function',
+    name: 'ratings',
+    stateMutability: 'view',
+    inputs: [{ name: '', type: 'uint256' }],
+    outputs: [
+      { name: 'quality', type: 'uint8' },
+      { name: 'deliverySpeed', type: 'uint8' },
+      { name: 'ratedAt', type: 'uint64' },
+    ],
+  },
+  {
+    // Per-seller aggregate, for cheap average reads (avg = sum / count).
+    type: 'function',
+    name: 'sellerRatings',
+    stateMutability: 'view',
+    inputs: [{ name: '', type: 'address' }],
+    outputs: [
+      { name: 'count', type: 'uint256' },
+      { name: 'qualitySum', type: 'uint256' },
+      { name: 'deliverySum', type: 'uint256' },
+    ],
+  },
+  {
+    // Public units-sold count (Completed orders that paid the seller).
+    type: 'function',
+    name: 'sellerSales',
+    stateMutability: 'view',
+    inputs: [{ name: '', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'orders',
+    stateMutability: 'view',
+    inputs: [{ name: '', type: 'uint256' }],
+    outputs: [
+      { name: 'listingId', type: 'uint256' },
+      { name: 'buyer', type: 'address' },
+      { name: 'seller', type: 'address' },
+      { name: 'token', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+      { name: 'fundedAt', type: 'uint64' },
+      { name: 'state', type: 'uint8' },
+    ],
+  },
 ];

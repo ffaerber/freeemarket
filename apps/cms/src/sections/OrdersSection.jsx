@@ -31,6 +31,20 @@ import { Card, Button, GhostButton, SectionHeader, Banner, ErrorNote, Pill } fro
 
 const STATE = { NONE: 0, FUNDED: 1, COMPLETED: 2, DISPUTED: 3, REFUNDED: 4 };
 
+/** Compact read-only star row (n of 5) for displaying a buyer's rating. */
+function StarRow({ value, label }) {
+  const n = Math.max(0, Math.min(5, Number(value) || 0));
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5 }}>
+      <span style={{ color: 'var(--muted)' }}>{label}</span>
+      <span style={{ color: 'var(--accent)', letterSpacing: 1 }} aria-label={`${n} of 5`}>
+        {'★'.repeat(n)}
+        <span style={{ color: 'var(--border)' }}>{'★'.repeat(5 - n)}</span>
+      </span>
+    </span>
+  );
+}
+
 /** localStorage key for the off-chain "shipped" memo (no on-chain equivalent). */
 const SHIPPED_KEY = 'fmkt.cms.shipped';
 
@@ -113,6 +127,30 @@ export default function OrdersSection() {
   const isArbiter =
     Boolean(address && ownerRead.data && getAddress(ownerRead.data) === getAddress(address));
 
+  // Public reputation for this shop: units sold + aggregate stars (CLAUDE.md
+  // §reviews). Same values any buyer sees on the storefront.
+  const salesRead = useReadContract({
+    abi: marketplaceAbi,
+    address: MARKETPLACE_ADDRESS || undefined,
+    functionName: 'sellerSales',
+    args: address ? [address] : undefined,
+    chainId: GNOSIS_CHAIN_ID,
+    query: { enabled: Boolean(MARKETPLACE_ADDRESS && address) },
+  });
+  const ratingsRead = useReadContract({
+    abi: marketplaceAbi,
+    address: MARKETPLACE_ADDRESS || undefined,
+    functionName: 'sellerRatings',
+    args: address ? [address] : undefined,
+    chainId: GNOSIS_CHAIN_ID,
+    query: { enabled: Boolean(MARKETPLACE_ADDRESS && address) },
+  });
+  const soldCount = salesRead.data != null ? Number(salesRead.data) : 0;
+  const ratingCount = ratingsRead.data ? Number(ratingsRead.data[0]) : 0;
+  const avgStars = ratingCount
+    ? Math.round(((Number(ratingsRead.data[1]) + Number(ratingsRead.data[2])) / (ratingCount * 2)) * 10) / 10
+    : 0;
+
   return (
     <div>
       <SectionHeader
@@ -123,6 +161,22 @@ export default function OrdersSection() {
 
       {isArbiter && <Banner tone="info">You are the contract arbiter (owner) — dispute resolution controls are enabled.</Banner>}
       {error && <Banner tone="error">Couldn't load orders: {error.shortMessage || error.message}</Banner>}
+
+      {/* Public reputation — units sold + average stars (what buyers see). */}
+      <Card style={{ padding: 14, marginBottom: 12, display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)' }}>{soldCount}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{soldCount === 1 ? 'order sold' : 'orders sold'}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)' }}>
+            {ratingCount ? `★ ${avgStars.toFixed(1)}` : '—'}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+            {ratingCount ? `avg · ${ratingCount} rating${ratingCount === 1 ? '' : 's'}` : 'no ratings yet'}
+          </div>
+        </div>
+      </Card>
 
       {/* Local keystore unlock — the merchant's ECIES private key, runtime only. */}
       <Card style={{ padding: 14, marginBottom: 12 }}>
@@ -197,6 +251,19 @@ function OrderRow({ order, autoReleasePeriod, isArbiter, sellerAddress, privateK
 
   const oid = order.orderId.toString();
   const shipped = Boolean(shippedMap[oid]);
+
+  // Buyer's on-chain rating for this order (CLAUDE.md §reviews), shown read-only
+  // once the order is Completed. quality 0 == not yet rated.
+  const ratingRead = useReadContract({
+    abi: marketplaceAbi,
+    address: MARKETPLACE_ADDRESS,
+    functionName: 'ratings',
+    args: [order.orderId],
+    chainId: GNOSIS_CHAIN_ID,
+    query: { enabled: order.state === STATE.COMPLETED },
+  });
+  const rating = ratingRead.data; // [quality, deliverySpeed, ratedAt]
+  const hasRating = rating && Number(rating[0]) > 0;
 
   // Timeout eligibility: Funded + (now >= fundedAt + autoReleasePeriod).
   const nowSec = BigInt(Math.floor(Date.now() / 1000));
@@ -293,6 +360,18 @@ function OrderRow({ order, autoReleasePeriod, isArbiter, sellerAddress, privateK
           {fundedDate && (
             <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 3 }}>
               funded {fundedDate.toLocaleString()}
+            </div>
+          )}
+          {order.state === STATE.COMPLETED && (
+            <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+              {hasRating ? (
+                <>
+                  <StarRow label="quality" value={rating[0]} />
+                  <StarRow label="delivery" value={rating[1]} />
+                </>
+              ) : (
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>buyer hasn't rated yet</span>
+              )}
             </div>
           )}
         </div>

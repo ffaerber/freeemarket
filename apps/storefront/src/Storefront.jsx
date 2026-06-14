@@ -17,6 +17,8 @@ import Checkout from './checkout/Checkout.jsx';
 import { useShop } from './hooks/useShop.js';
 import { useListings } from './hooks/useListings.js';
 import { useActiveSeller } from './hooks/useActiveSeller.js';
+import { useSellerRating } from './hooks/useSellerRating.js';
+import { Stars } from './ui/Stars.jsx';
 import Portal from './Portal.jsx';
 import { UtilityBar, Nav, MiniFooter } from './chrome.jsx';
 import { swarmImageUrl } from './lib/swarm.js';
@@ -125,6 +127,7 @@ function StorefrontView({ shop, handle, groups, isLoading, error }) {
   const [group, setGroup] = useState(null);
   const [selected, setSelected] = useState(null);
   const [cat, setCat] = useState('all');
+  const rating = useSellerRating(shop.seller);
 
   function openGroup(g) {
     setGroup(g);
@@ -170,6 +173,21 @@ function StorefrontView({ shop, handle, groups, isLoading, error }) {
           </div>
           <div className="fm-hud" style={{ minWidth: 260 }}>
             <div className="fm-hud-row"><span className="fm-hud-key">seller</span><span className="fm-hud-val">{sellerShort}</span></div>
+            {rating.hasRatings && (
+              <div className="fm-hud-row">
+                <span className="fm-hud-key">rating</span>
+                <span className="fm-hud-val" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Stars value={rating.avgOverall} size={14} />
+                  <span>{rating.avgOverall.toFixed(1)} · {rating.count}</span>
+                </span>
+              </div>
+            )}
+            {rating.hasSales && (
+              <div className="fm-hud-row">
+                <span className="fm-hud-key">sold</span>
+                <span className="fm-hud-val">{rating.salesCount} {rating.salesCount === 1 ? 'order' : 'orders'}</span>
+              </div>
+            )}
             <div className="fm-hud-row"><span className="fm-hud-key">listings</span><span className="fm-hud-val fm-hud-val--neon">{totalListings} active</span></div>
             <div className="fm-hud-row"><span className="fm-hud-key">settlement</span><span className="fm-hud-val">100 % to seller</span></div>
             <div className="fm-hud-row"><span className="fm-hud-key">network</span><span className="fm-hud-val">gnosis · 100</span></div>
