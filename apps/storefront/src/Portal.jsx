@@ -98,7 +98,7 @@ export default function Portal() {
         <section className="hero">
           <div className="fm-rail fm-rail--wide hero-grid">
             <div>
-              <div className="fm-kicker fm-rise" style={{ marginBottom: 22 }}>// an open eBay · permissionless commerce</div>
+              <div className="fm-kicker fm-rise" style={{ marginBottom: 22 }}>// an open marketplace · permissionless commerce</div>
               <h1 className="fm-display fm-rise" style={{ animationDelay: '.05s' }}>Own the market.<br />No <em>middleman</em>.</h1>
               <p className="fm-lead fm-rise" style={{ animationDelay: '.12s', marginTop: 24, maxWidth: '48ch' }}>
                 Anyone runs their own shop, sells real goods, and gets paid in stablecoins through

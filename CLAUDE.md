@@ -1,6 +1,6 @@
 # FreeeMarket — Project Spec
 
-A decentralized, multi-vendor marketplace (an "open eBay") where anyone can run their own shop, sell physical goods, and get paid in stablecoins through on-chain escrow. Built on Gnosis Chain + Ethereum Swarm.
+A decentralized, multi-vendor marketplace (an "open marketplace") where anyone can run their own shop, sell physical goods, and get paid in stablecoins through on-chain escrow. Built on Gnosis Chain + Ethereum Swarm.
 
 This document is a handoff brief: drop it into the repo (e.g. as `CLAUDE.md` or `docs/SPEC.md`) so Claude Code has full context to continue the build.
 
@@ -8,7 +8,7 @@ This document is a handoff brief: drop it into the repo (e.g. as `CLAUDE.md` or 
 
 ## 1. Vision
 
-- **Multi-vendor.** Anyone registers a shop and lists items — like eBay/Shopify, but permissionless. The fruit seller and the car-parts seller share nothing except the backend.
+- **Multi-vendor.** Anyone registers a shop and lists items — like a mainstream marketplace, but permissionless. The fruit seller and the car-parts seller share nothing except the backend.
 - **Shared backend, independent storefronts.** One smart contract is the source of truth for all shops. Each shop runs its own customizable storefront.
 - **Trustless payment.** Buyers pay USDC into escrow; funds release to the seller only on delivery confirmation (or timeout), with a dispute path.
 - **Private shipping.** Addresses are end-to-end encrypted to the seller and never appear on-chain in plaintext.
