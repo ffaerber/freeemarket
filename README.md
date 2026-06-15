@@ -1,6 +1,6 @@
 # FreeeMarket
 
-A decentralized, multi-vendor marketplace (an "open eBay") where anyone can run
+A decentralized, multi-vendor marketplace (an "open marketplace") where anyone can run
 their own shop, sell physical goods, and get paid in stablecoins through on-chain
 escrow. Built on Gnosis Chain + Ethereum Swarm.
 
