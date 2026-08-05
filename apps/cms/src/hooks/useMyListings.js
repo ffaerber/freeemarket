@@ -18,7 +18,7 @@ import { formatUnits } from 'viem';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { erc20Abi } from '../abi/erc20.js';
 import { fetchListingMetadata } from '../lib/swarm.js';
-import { MARKETPLACE_ADDRESS, BEE_URL, GNOSIS_CHAIN_ID } from '../config.js';
+import { MARKETPLACE_ADDRESS, BEE_URL, GNOSIS_CHAIN_ID, FROM_BLOCK } from '../config.js';
 
 async function readToken(client, token, hint) {
   let decimals;
@@ -47,7 +47,7 @@ async function loadMyListings(client, seller) {
     abi: marketplaceAbi,
     eventName: 'ListingCreated',
     args: { seller },
-    fromBlock: 0n,
+    fromBlock: FROM_BLOCK,
     toBlock: 'latest',
   });
 
@@ -114,7 +114,7 @@ export function useMyListings() {
   const { address } = useAccount();
 
   const query = useQuery({
-    queryKey: ['cms', 'myListings', MARKETPLACE_ADDRESS, address, BEE_URL],
+    queryKey: ['cms', 'myListings', MARKETPLACE_ADDRESS, address, BEE_URL, FROM_BLOCK.toString()],
     enabled: Boolean(client && MARKETPLACE_ADDRESS && address),
     queryFn: () => loadMyListings(client, address),
     staleTime: 30 * 1000,

@@ -393,7 +393,10 @@ contract Marketplace is ReentrancyGuard, Ownable2Step, Pausable {
     ///
     /// @dev Anti-fraud: only the order's `buyer` can rate, and only once the
     ///      order has actually settled to the seller (`state == Completed`, via
-    ///      either `confirmReceipt` or `claimAfterTimeout`). This makes every
+    ///      `confirmReceipt`, `claimAfterTimeout`, or a dispute the arbiter
+    ///      resolved in the SELLER's favour — all three run `_release`). A
+    ///      refunded order takes the Refunded branch, never reaches Completed,
+    ///      and so can never be rated. This makes every
     ///      rating a VERIFIED purchase — money really moved buyer→seller — so
     ///      nobody can spam stars without paying. Each order is rateable exactly
     ///      ONCE and the rating is immutable thereafter (the stored `quality`

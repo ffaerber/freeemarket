@@ -1,12 +1,25 @@
 # FreeeMarket — monorepo build / test / deploy
 # Adapt per-shop deploy from SwarmChat's `make deploy-frontend` (see CLAUDE.md §8).
 
-.PHONY: help build test contracts-build contracts-test deploy-contract deploy-handle-registry storefront cms deploy-frontend deploy-frontend-build deploy-cms deploy-cms-build
+# Workspace layout. The apps consume packages/* as `file:` deps, and those
+# packages resolve through their package.json `exports` → dist/, which is
+# gitignored. So the packages MUST be built before an app will even resolve its
+# imports (a clean checkout otherwise fails with "Failed to resolve entry for
+# package @freeemarket/schema"). `packages-build` below is that step; the apps
+# also run it themselves via their own `prebuild`/`predev` hooks.
+PKGS := packages/schema packages/messaging
+APPS := apps/storefront apps/cms
+
+.PHONY: help bootstrap build test contracts-build contracts-test packages-build packages-test apps-build scripts-test deploy-contract deploy-handle-registry storefront cms deploy-frontend deploy-frontend-build deploy-cms deploy-cms-build
 
 help:
 	@echo "FreeeMarket targets:"
+	@echo "  make bootstrap        - npm install in every package/app/scripts dir (run this first)"
 	@echo "  make build            - build all packages and apps"
 	@echo "  make test             - run all tests"
+	@echo "  make packages-build   - build packages/* (required before any app build)"
+	@echo "  make packages-test    - run the packages/* unit tests"
+	@echo "  make scripts-test     - run the ops-script unit tests"
 	@echo "  make contracts-build  - forge build (contracts/)"
 	@echo "  make contracts-test   - forge test (contracts/)"
 	@echo "  make deploy-contract  - deploy Marketplace (set RPC_URL; dry-run if unset)"
@@ -18,11 +31,39 @@ help:
 	@echo "  make deploy-cms            - upload prebuilt CMS admin SPA to Swarm (own feed topic; print-only by default)"
 	@echo "  make deploy-cms-build      - same, but build the CMS first (BUILD=1)"
 
-build: contracts-build
-	@echo "TODO: build packages/* and apps/*"
+# Install dependencies everywhere. The packages' `prepare` scripts build their
+# dist/ as part of their own install, so a bootstrap alone leaves the workspace
+# in a state where the apps can resolve @freeemarket/* imports.
+bootstrap:
+	@for d in $(PKGS) $(APPS) scripts; do \
+	  echo "==> npm install ($$d)"; \
+	  (cd $$d && npm install) || exit 1; \
+	done
 
-test: contracts-test
-	@echo "TODO: run package/app tests"
+packages-build:
+	@for d in $(PKGS); do \
+	  echo "==> build $$d"; \
+	  (cd $$d && npm run build) || exit 1; \
+	done
+
+apps-build: packages-build
+	@for d in $(APPS); do \
+	  echo "==> build $$d"; \
+	  (cd $$d && npm run build) || exit 1; \
+	done
+
+build: contracts-build apps-build
+
+packages-test:
+	@for d in $(PKGS); do \
+	  echo "==> test $$d"; \
+	  (cd $$d && npm test) || exit 1; \
+	done
+
+scripts-test:
+	cd scripts && npm test
+
+test: contracts-test packages-test scripts-test
 
 contracts-build:
 	cd contracts && forge build

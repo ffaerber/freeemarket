@@ -83,3 +83,26 @@ test('a garbage signature does not throw and is rejected', async () => {
   const res = await openEnvelope(broken, { expectedFrom: buyer.address });
   assert.equal(res.ok, false);
 });
+
+test('expectedTo rejects an envelope addressed to a third party', async () => {
+  const buyer = signerFor(generatePrivateKey());
+  const seller = signerFor(generatePrivateKey());
+  const someoneElse = signerFor(generatePrivateKey());
+  // A LEGITIMATE, correctly-signed envelope — just not addressed to us.
+  const env = await sealEnvelope(
+    { kind: 'shipping-address', orderId: '42', from: buyer.address, to: someoneElse.address, ciphertext: '0xab' },
+    buyer.sign,
+  );
+  // Signer checks out, so without expectedTo it passes...
+  assert.equal(await verifyEnvelope(env, { expectedFrom: buyer.address }), true);
+  // ...but we are not the addressee.
+  assert.equal(
+    await verifyEnvelope(env, { expectedFrom: buyer.address, expectedTo: seller.address }),
+    false,
+  );
+  // And the real addressee still accepts it.
+  assert.equal(
+    await verifyEnvelope(env, { expectedFrom: buyer.address, expectedTo: someoneElse.address }),
+    true,
+  );
+});

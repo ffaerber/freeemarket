@@ -136,3 +136,24 @@ export const ADMIN_THEME = {
   display: "'DM Sans', system-ui, sans-serif",
   body: "'DM Sans', system-ui, sans-serif",
 };
+
+/**
+ * Block to start event scans from (`ListingCreated`, `OrderFunded`).
+ *
+ * Defaults to 0, which forces every `getContractEvents` call to walk the chain
+ * from genesis. `OrderFunded` is the painful one: the event has already used
+ * its 3 indexable topics (orderId, listingId, buyer), so `seller` CANNOT be
+ * indexed without giving one of those up — the CMS therefore fetches every
+ * order on the marketplace and filters client-side. Bounding the range is the
+ * fix available without a contract change. Set it to the Marketplace's
+ * deployment block. Parsed as BigInt; a bad value falls back to 0.
+ */
+export const FROM_BLOCK = (() => {
+  const raw = envOr('VITE_FROM_BLOCK', '0');
+  try {
+    const v = BigInt(raw);
+    return v >= 0n ? v : 0n;
+  } catch {
+    return 0n;
+  }
+})();

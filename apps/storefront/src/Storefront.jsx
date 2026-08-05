@@ -68,10 +68,18 @@ function stockLabel(item) {
   return { text: `${c} in stock`, cls: '' };
 }
 
-/** Group price as { price, token } for the card row (range when variants differ). */
+/**
+ * Group price as { price, token } for the card row (range when variants differ).
+ *
+ * A range is only meaningful when every variant settles in the SAME token —
+ * each listing picks its own, so a mixed-token group would otherwise render
+ * "10–5000 USDC" for 10 USDC and 5000 WXDAI. `groupListings` flags that case
+ * via `sameToken`; there we just show the lead variant's price.
+ */
 function groupPrice(group) {
   const lo = group.variants[0];
   const hi = group.variants[group.variants.length - 1];
+  if (group.sameToken === false) return { price: lo.priceFormatted, token: lo.symbol };
   const price = lo.priceFormatted === hi.priceFormatted ? lo.priceFormatted : `${lo.priceFormatted}–${hi.priceFormatted}`;
   return { price, token: lo.symbol };
 }

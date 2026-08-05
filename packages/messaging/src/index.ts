@@ -149,7 +149,10 @@ export async function receiveShippingAddress(
       rejected++;
       continue;
     }
-    const { ok } = await openEnvelope(envelope, { expectedFrom: args.buyer });
+    const { ok } = await openEnvelope(envelope, {
+      expectedFrom: args.buyer,
+      expectedTo: args.seller,
+    });
     if (!ok) {
       rejected++;
       continue;
@@ -255,7 +258,10 @@ export async function receiveShipmentUpdate(
       rejected++;
       continue;
     }
-    const { ok } = await openEnvelope(envelope, { expectedFrom: args.seller });
+    const { ok } = await openEnvelope(envelope, {
+      expectedFrom: args.seller,
+      expectedTo: args.buyer,
+    });
     if (!ok) {
       rejected++;
       continue;

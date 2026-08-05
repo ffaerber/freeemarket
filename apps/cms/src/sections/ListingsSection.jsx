@@ -85,16 +85,26 @@ function sumPrice(itemRaw, shippingRaw, decimals) {
   const itemSmallest = parseUnits(item, decimals);
   const shippingSmallest = parseUnits(shipping, decimals);
   if (itemSmallest < 0n || shippingSmallest < 0n) throw new Error('Price and shipping must be ≥ 0.');
-  return { total: itemSmallest + shippingSmallest, item, shipping };
+  // Round-trip each leg through the parsed smallest-unit value rather than
+  // echoing the raw input. parseUnits happily accepts forms the schema's
+  // `^[0-9]+(\.[0-9]+)?$` pattern does not (".50", "1.", "+2"), which would
+  // sail through the live total preview and then fail assertListingMetadata
+  // with an opaque validation dump. formatUnits always emits a canonical
+  // decimal string, so what we store is exactly what we priced.
+  return {
+    total: itemSmallest + shippingSmallest,
+    item: formatUnits(itemSmallest, decimals),
+    shipping: formatUnits(shippingSmallest, decimals),
+  };
 }
 
 /** Live preview: human "item + shipping = total SYMBOL", or null if unparseable. */
 function previewTotal(itemRaw, shippingRaw, decimals, symbol) {
   try {
-    const item = String(itemRaw ?? '').trim();
-    if (!item) return null;
-    const { total } = sumPrice(itemRaw, shippingRaw, decimals);
-    const shipping = String(shippingRaw ?? '').trim() || '0';
+    if (!String(itemRaw ?? '').trim()) return null;
+    // Preview the NORMALIZED legs (same values sumPrice will store in
+    // metadata.pricing), so what the seller sees is what gets written.
+    const { total, item, shipping } = sumPrice(itemRaw, shippingRaw, decimals);
     return {
       item,
       shipping,
@@ -556,7 +566,11 @@ function ListingRow({ listing, onChanged }) {
         <GhostButton onClick={() => setEditing((v) => !v)} disabled={busy} style={{ padding: '8px 12px', fontSize: 13 }}>
           {editing ? 'Cancel' : 'Edit'}
         </GhostButton>
-        <GhostButton onClick={toggleActive} disabled={busy || !uploadsReady} style={{ padding: '8px 12px', fontSize: 13 }}>
+        {/* NOT gated on uploadsReady: toggling active reuses the existing
+            metadata ref and uploads nothing, so it must keep working when the
+            Bee node is unreachable or the stamp expired — that is exactly when
+            a seller needs to pull a listing. */}
+        <GhostButton onClick={toggleActive} disabled={busy} style={{ padding: '8px 12px', fontSize: 13 }}>
           <Power size={14} /> {listing.active ? 'Deactivate' : 'Activate'}
         </GhostButton>
       </div>

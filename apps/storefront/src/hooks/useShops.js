@@ -24,6 +24,7 @@ import {
   MARKETPLACE_ADDRESS,
   BEE_URL,
   GNOSIS_CHAIN_ID,
+  FROM_BLOCK,
 } from '../config.js';
 
 async function loadShops(client) {
@@ -34,7 +35,7 @@ async function loadShops(client) {
     address: HANDLE_REGISTRY,
     abi: handleRegistryAbi,
     eventName: 'HandleClaimed',
-    fromBlock: 0n,
+    fromBlock: FROM_BLOCK,
     toBlock: 'latest',
   });
 
@@ -88,7 +89,7 @@ export function useShops() {
   const client = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
 
   const query = useQuery({
-    queryKey: ['shops', HANDLE_REGISTRY, MARKETPLACE_ADDRESS, BEE_URL],
+    queryKey: ['shops', HANDLE_REGISTRY, MARKETPLACE_ADDRESS, BEE_URL, FROM_BLOCK.toString()],
     enabled: Boolean(client && HANDLE_REGISTRY),
     queryFn: () => loadShops(client),
     staleTime: 60 * 1000,

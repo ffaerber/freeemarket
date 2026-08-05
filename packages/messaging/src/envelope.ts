@@ -128,10 +128,16 @@ export interface OpenResult {
  * Recover the signer and REQUIRE it equals `expectedFrom` (the on-chain
  * counterparty). Returns `{ ok, recoveredAddress }`; never throws on a bad
  * signature — callers branch on `ok`.
+ *
+ * `expectedTo`, when given, additionally requires the envelope to be ADDRESSED
+ * to us. `to` is inside the signed digest so it can't be tampered with after
+ * signing, but a legitimate sender could still sign an envelope for a third
+ * party and drop it on a topic we read; this rejects it up front instead of
+ * relying on the ECIES decrypt to fail.
  */
 export async function openEnvelope(
   envelope: Envelope,
-  opts: { expectedFrom: Address },
+  opts: { expectedFrom: Address; expectedTo?: Address },
 ): Promise<OpenResult> {
   const digest = envelopeDigest({
     version: envelope.version,
@@ -153,14 +159,17 @@ export async function openEnvelope(
   const ok =
     getAddress(recoveredAddress) === getAddress(opts.expectedFrom) &&
     // Defence-in-depth: the envelope's own `from` must also match what we expect.
-    getAddress(envelope.from) === getAddress(opts.expectedFrom);
+    getAddress(envelope.from) === getAddress(opts.expectedFrom) &&
+    // …and, when the caller knows who it is, that we're the addressee.
+    (opts.expectedTo === undefined ||
+      getAddress(envelope.to) === getAddress(opts.expectedTo));
   return { ok, recoveredAddress: getAddress(recoveredAddress) };
 }
 
 /** Boolean convenience wrapper over {@link openEnvelope}. */
 export async function verifyEnvelope(
   envelope: Envelope,
-  opts: { expectedFrom: Address },
+  opts: { expectedFrom: Address; expectedTo?: Address },
 ): Promise<boolean> {
   return (await openEnvelope(envelope, opts)).ok;
 }
