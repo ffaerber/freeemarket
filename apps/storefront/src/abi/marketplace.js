@@ -30,9 +30,9 @@ export const marketplaceAbi = [
     name: 'OrderFunded',
     inputs: [
       { name: 'orderId', type: 'uint256', indexed: true },
-      { name: 'listingId', type: 'uint256', indexed: true },
+      { name: 'listingId', type: 'uint256', indexed: false },
       { name: 'buyer', type: 'address', indexed: true },
-      { name: 'seller', type: 'address', indexed: false },
+      { name: 'seller', type: 'address', indexed: true },
       { name: 'token', type: 'address', indexed: false },
       { name: 'amount', type: 'uint256', indexed: false },
     ],

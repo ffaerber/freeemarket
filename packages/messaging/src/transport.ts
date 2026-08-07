@@ -40,6 +40,13 @@ export function topicForOrder(orderId: string, direction: Direction): string {
 export interface ReceiveOptions {
   /** The address whose mailbox we're reading (the recipient). */
   recipient: Address;
+  /**
+   * Owner of the store-and-forward feed to read, i.e. the SENDER's feed-owner
+   * address. Feeds are written by whoever holds the message, so the reader must
+   * look at the sender's feed, not its own. Derive it from the sender's ECIES
+   * public key with `addressFromPublicKey`. Omitted ⇒ no feed read.
+   */
+  feedOwner?: Address;
   /** Optional cap on how many envelopes to return. */
   limit?: number;
 }
@@ -106,9 +113,8 @@ export interface BeeTransportOptions {
   /** Postage batch id stamping uploads. Use a SHORT-LIVED batch so ciphertext self-expires post-fulfillment (CLAUDE.md §5). */
   postageBatchId: string;
   /**
-   * Feed owner to READ the store-and-forward feed from. Defaults to the
-   * `recipient` passed to {@link BeeTransport.receive}. Set this when the feed
-   * is written by someone other than the recipient (see `feedSigner`).
+   * Default feed owner to READ from, when `receive` isn't given one per call.
+   * This is the SENDER's feed-owner address (see `ReceiveOptions.feedOwner`).
    */
   feedOwner?: Address;
   /**
@@ -175,15 +181,22 @@ function parseEnvelope(bytes: Uint8Array): Envelope | null {
  *   - `send` ALSO writes the envelope to a Swarm feed when `feedSigner` is
  *     configured. This is the ONLY path that survives an offline recipient, and
  *     it is what `receive` reads back.
- *   - `receive` reads the feed (owner = `feedOwner ?? recipient`), and
- *     optionally holds a short PSS listen window when `pssTimeoutMs > 0`.
+ *   - `receive` reads that feed, and optionally holds a short PSS listen window
+ *     when `pssTimeoutMs > 0`.
  *
- * So for a message to be readable LATER — the actual product flow, where the
- * seller opens the CMS hours after the buyer checked out — a feed write must
- * happen. Either configure `feedSigner` on the sender, or run a persistent
- * listener on the recipient's node via {@link BeeTransport.subscribe} that
- * writes what it hears into a feed the recipient owns. With neither, `send` and
- * `receive` cannot meet except by coincidence of timing.
+ * THE FEED IS OWNED BY THE SENDER. Only the sender holds the message, so only
+ * the sender can write it; a recipient cannot buffer mail into its own feed
+ * before it has arrived. The reader therefore points at the SENDER's feed via
+ * `ReceiveOptions.feedOwner`. Both sides agree on that address without any new
+ * registry field: the sender signs with its ECIES private key, and the reader
+ * derives the same address from the sender's ECIES public key — which it has
+ * already fetched from the ContactRegistry in order to encrypt. See
+ * `addressFromPublicKey`, including its note on key reuse.
+ *
+ * With no `feedSigner` on the sender and no `feedOwner` on the reader, only the
+ * live PSS path remains, and `send`/`receive` meet only by coincidence of
+ * timing. For an always-on recipient, {@link BeeTransport.subscribe} is the
+ * correct pattern instead of polling `receive`.
  */
 export class BeeTransport implements Transport {
   private readonly bee: Bee;
@@ -231,16 +244,20 @@ export class BeeTransport implements Transport {
   async receive(topic: string, opts: ReceiveOptions): Promise<Envelope[]> {
     const out: Envelope[] = [];
 
-    // 1. Store-and-forward read: whoever owns the feed for this topic.
-    const owner = this.feedOwner ?? opts.recipient;
-    try {
-      const reader = this.bee.makeFeedReader('sequence', topic, owner);
-      const latest = await reader.download();
-      const bytes = await this.bee.downloadData(latest.reference);
-      const envelope = parseEnvelope(bytes);
-      if (envelope) out.push(envelope);
-    } catch {
-      // No feed update yet (nothing buffered for this topic).
+    // 1. Store-and-forward read from the SENDER's feed. There is no sensible
+    //    default here: reading our own feed would only ever find messages we
+    //    sent ourselves, so with no owner we simply skip the feed path.
+    const owner = opts.feedOwner ?? this.feedOwner;
+    if (owner) {
+      try {
+        const reader = this.bee.makeFeedReader('sequence', topic, owner);
+        const latest = await reader.download();
+        const bytes = await this.bee.downloadData(latest.reference);
+        const envelope = parseEnvelope(bytes);
+        if (envelope) out.push(envelope);
+      } catch {
+        // No feed update yet (nothing buffered for this topic).
+      }
     }
 
     // 2. Optional live PSS window. Off by default — it only catches messages

@@ -88,7 +88,7 @@ The `Listing` struct is `{ address seller; address token; uint256 price; uint256
 | `setAutoReleasePeriod(period)` | owner | Admin. Adjust the auto-release window (1–90 days). |
 | `pause()` / `unpause()` | owner | Circuit breaker on intake only (see hardening #4). |
 
-**Events:** `ShopRegistered`, `TokenAccepted(token, accepted)`, `ListingCreated(id, seller, token, price, stock, metadata)`, `ListingUpdated(id, price, stock, metadata, active)`, `StockChanged(id, newStock)` (emitted from `buy` after decrement and from `updateListing`, so storefronts/indexers track remaining inventory cheaply), `OrderFunded(orderId, listingId, buyer, seller, token, amount)`, `OrderCompleted(orderId, payout)` (`payout` == full escrowed amount; no fee field), `OrderRefunded`, `DisputeOpened`, `OrderRated(orderId, seller, buyer, quality, deliverySpeed)` (`seller` indexed so a storefront/indexer can pull every rating for a shop), plus admin events. (There is **no** `FeeUpdated`/`FeesWithdrawn` event — the fee surface was removed.)
+**Events:** `ShopRegistered`, `TokenAccepted(token, accepted)`, `ListingCreated(id, seller, token, price, stock, metadata)`, `ListingUpdated(id, price, stock, metadata, active)`, `StockChanged(id, newStock)` (emitted from `buy` after decrement and from `updateListing`, so storefronts/indexers track remaining inventory cheaply), `OrderFunded(orderId, listingId, buyer, seller, token, amount)` (**indexed: `orderId`, `buyer`, `seller`** — a non-anonymous event allows only three, and those are the ones clients filter on, so a merchant fetches just their own orders instead of every order on the marketplace; `listingId` rides in the data), `OrderCompleted(orderId, payout)` (`payout` == full escrowed amount; no fee field), `OrderRefunded`, `DisputeOpened`, `OrderRated(orderId, seller, buyer, quality, deliverySpeed)` (`seller` indexed so a storefront/indexer can pull every rating for a shop), plus admin events. (There is **no** `FeeUpdated`/`FeesWithdrawn` event — the fee surface was removed.)
 
 **On-chain ratings (stars, not text).** Buyers leave feedback as two 1–5 **star** scores — `quality` (item matched the listing / condition) and `deliverySpeed` — via `rateOrder(orderId, quality, deliverySpeed)`. Deliberately **text-free**: no review prose on-chain, so a rating is cheap to store and any storefront can aggregate it without parsing strings. **Anti-fraud by construction:** only the order's `buyer` can rate, and only after the order is **`Completed`** (escrow actually settled to the seller via `confirmReceipt`, `claimAfterTimeout`, or a dispute the arbiter resolved in the *seller's* favour — all three run `_release`) — so every rating is a *verified purchase* (real money moved buyer→seller), un-spammable without paying. Each order is rateable **exactly once** and the rating is **immutable** thereafter (a stored `quality` of 0 is the not-yet-rated / already-rated guard; valid scores are 1–5). Ratings are **not** `whenNotPaused` (they move no money and create no intake, so pausing must never block a buyer rating an already-completed order). Storage: `mapping(uint256 => Rating) public ratings` (`{ uint8 quality; uint8 deliverySpeed; uint64 ratedAt; }`, per order) plus running per-seller tallies `mapping(address => SellerRatings) public sellerRatings` (`{ count; qualitySum; deliverySum; }`) so a shop's **average stars** is a single view read — `avg = sum / count` — with no event scan. Refunded orders take the Refunded branch, never reach `Completed`, and so can't be rated; a disputed order can only be rated if it was resolved by paying the seller. **No fee/escrow surface touched** — ratings are a pure additive read/write layer on top of the existing lifecycle.
 
@@ -117,6 +117,19 @@ Recommended flow, reusing SwarmChat:
 4. **Offline delivery** — message is also written to the per-recipient Swarm feed (SwarmChat's store-and-forward), so an offline shop still receives it.
 5. **Fulfillment** — CMS decrypts with the seller's private key, ships, buyer calls `confirmReceipt`, escrow releases.
 6. **Tracking reply (seller → buyer)** — after shipping, the seller sends a tracking code `{ orderId, carrier?, trackingCode?, note? }` back to the buyer over the SAME machinery: ECIES-encrypted to the buyer's key, signed envelope (buyer verifies signer == `order.seller`), delivered over PSS + the buyer's feed.
+
+> **Store-and-forward ownership (feeds).** PSS is a live push with no replay, so
+> a message only survives an offline counterparty if it is also written to a
+> Swarm feed. Feeds are written by whoever holds the message, i.e. the **sender**
+> — a recipient cannot buffer mail into its own feed before it arrives. So the
+> sender signs a feed with its **ECIES private key**, and the reader derives that
+> feed's owner address from the sender's **ECIES public key**, which it already
+> fetches from the ContactRegistry to encrypt. No second key to publish. (Key
+> reuse across encryption and feed-signing is a deliberate trade; message
+> authenticity is carried separately by the wallet-signed envelope, so a forged
+> feed still fails `openEnvelope`.) Both apps take this key locally at runtime —
+> the CMS's existing unlock field, and an optional field on the storefront's
+> address step. Without it, delivery degrades to PSS-only.
 
 > ✅ **Built:** `packages/messaging` (`@freeemarket/messaging`) implements this flow **bidirectionally** — `sendShippingAddress`/`receiveShippingAddress` (buyer→seller) and `sendShipmentUpdate`/`receiveShipmentUpdate` (seller→buyer tracking) — with ECIES (eciesjs), signed envelopes (viem) carrying the on-chain sender check, and a pluggable transport (`BeeTransport` for real PSS+feeds, `InMemoryTransport` for tests).
 >
@@ -258,7 +271,7 @@ security notes) in [`docs/DEPLOY.md`](docs/DEPLOY.md).
 ## 9. Build Order / TODO
 
 1. ~~**Schema** (`packages/schema`) — TS types + JSON Schema.~~ ✅ Done.
-2. ~~**Contract tests** — Foundry suite (happy paths, escrow release, timeout, dispute, full-payout/no-fee, fuzz, invariants).~~ ✅ Done (62 tests, incl. multi-token + deploy script + pre-audit security hardening — see §4).
+2. ~~**Contract tests** — Foundry suite (happy paths, escrow release, timeout, dispute, full-payout/no-fee, fuzz, invariants).~~ ✅ Done (141 tests, incl. multi-token + deploy script + pre-audit security hardening + `OrderFunded` topic layout — see §4).
 3. ~~**Decide identity model** — delegate keys/comms to `ContactRegistry` + PSS, then strip `encryptionPubKey`/`shippingRef` from `Marketplace`.~~ ✅ Done — delegated to SwarmChat; contract is now pure escrow + listings.
 4. ~~**Confirm token** — Gnosis USDC address or commit to xDAI; set in deploy script.~~ ✅ Done — replaced the single hardcoded token with an owner-curated `acceptedTokens` allowlist + per-listing token choice (multi-token escrow). The deploy script (`contracts/script/Deploy.s.sol`) seeds the allowlist — defaulting to Gnosis WXDAI + bridged USDC, overridable via the `TOKENS` env — and the owner can add/remove tokens later via `setTokenAccepted`. No single token is hardcoded.
 5. **Storefront (real)** — port template, wire contract + Swarm + PSS.

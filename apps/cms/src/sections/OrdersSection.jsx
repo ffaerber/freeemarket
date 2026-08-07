@@ -300,6 +300,9 @@ function OrderRow({ order, autoReleasePeriod, isArbiter, sellerAddress, privateK
         seller: sellerAddress,
         buyer: order.buyer,
         recipientPrivateKey: privateKey?.trim() || undefined,
+        // Resolves the buyer's ECIES key so we can read the buyer-owned
+        // store-and-forward feed, not just catch a live PSS push.
+        publicClient,
         beeUrl,
       });
       setDecryptResult(result);
@@ -323,6 +326,9 @@ function OrderRow({ order, autoReleasePeriod, isArbiter, sellerAddress, privateK
         update: { carrier, trackingCode, note },
         publicClient,
         signMessage,
+        // Signs the store-and-forward feed so an offline buyer can still read
+        // the tracking code later. Same unlocked key, never leaves the machine.
+        feedPrivateKey: privateKey?.trim() || undefined,
         beeUrl,
         postageBatchId: batchId,
       });

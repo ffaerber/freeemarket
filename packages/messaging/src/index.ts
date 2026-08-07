@@ -28,7 +28,7 @@
  * are a superset of those stubs so swap-in is a near-one-file change.
  */
 import type { Address, Hex } from 'viem';
-import { encryptJson, decryptJson } from './crypto.js';
+import { encryptJson, decryptJson, addressFromPublicKey } from './crypto.js';
 import {
   sealEnvelope,
   openEnvelope,
@@ -121,6 +121,12 @@ export interface ReceiveShippingAddressArgs {
   seller: Address;
   /** The SELLER's ECIES private key (local keystore only — never committed). */
   recipientPrivateKey: Hex;
+  /**
+   * The BUYER's ECIES public key (from the ContactRegistry). Used to locate the
+   * buyer's store-and-forward feed — the sender owns the feed, so this is what
+   * makes an offline hand-off readable. Omit to use the live PSS path only.
+   */
+  senderPublicKey?: Hex;
   transport: Transport;
 }
 
@@ -142,7 +148,13 @@ export async function receiveShippingAddress(
   args: ReceiveShippingAddressArgs,
 ): Promise<ReceiveShippingAddressResult> {
   const topic = topicForOrder(args.orderId, directionForKind('shipping-address'));
-  const envelopes = await args.transport.receive(topic, { recipient: args.seller });
+  const envelopes = await args.transport.receive(topic, {
+    recipient: args.seller,
+    // The buyer wrote the feed, so read the buyer's.
+    feedOwner: args.senderPublicKey
+      ? addressFromPublicKey(args.senderPublicKey)
+      : undefined,
+  });
   let rejected = 0;
   for (const envelope of envelopes) {
     if (envelope.kind !== 'shipping-address' || envelope.orderId !== args.orderId) {
@@ -231,6 +243,11 @@ export interface ReceiveShipmentUpdateArgs {
   seller: Address;
   /** The BUYER's ECIES private key. */
   recipientPrivateKey: Hex;
+  /**
+   * The SELLER's ECIES public key (from the ContactRegistry). Locates the
+   * seller's store-and-forward feed; see {@link ReceiveShippingAddressArgs}.
+   */
+  senderPublicKey?: Hex;
   transport: Transport;
 }
 
@@ -251,7 +268,13 @@ export async function receiveShipmentUpdate(
   args: ReceiveShipmentUpdateArgs,
 ): Promise<ReceiveShipmentUpdateResult> {
   const topic = topicForOrder(args.orderId, directionForKind('shipment-update'));
-  const envelopes = await args.transport.receive(topic, { recipient: args.buyer });
+  const envelopes = await args.transport.receive(topic, {
+    recipient: args.buyer,
+    // The seller wrote the feed, so read the seller's.
+    feedOwner: args.senderPublicKey
+      ? addressFromPublicKey(args.senderPublicKey)
+      : undefined,
+  });
   let rejected = 0;
   for (const envelope of envelopes) {
     if (envelope.kind !== 'shipment-update' || envelope.orderId !== args.orderId) {

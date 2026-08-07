@@ -8,6 +8,7 @@ import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import type { Address, Hex } from 'viem';
 import {
   generateKeyPair,
+  addressFromPublicKey,
   InMemoryTransport,
   sendShippingAddress,
   receiveShippingAddress,
@@ -156,4 +157,104 @@ test('cross-direction isolation: a shipping address is not picked up as a shipme
   assert.equal(got.decrypted, false);
   assert.equal(got.update, null);
   assert.equal(got.rejected, 0); // distinct topic → nothing even arrives
+});
+
+/**
+ * A transport that models BeeTransport's FEED semantics rather than a mailbox:
+ * `send` files the envelope under the SENDER's feed-owner address, and
+ * `receive` only finds it if the reader points at that same owner. This is the
+ * offline / store-and-forward path — the one that carries a message when the
+ * recipient wasn't listening at send time.
+ */
+class FeedTransport {
+  constructor(senderFeedOwner) {
+    this.senderFeedOwner = senderFeedOwner.toLowerCase();
+    this.feeds = new Map();
+  }
+  async send(topic, _recipient, envelope) {
+    this.feeds.set(`${topic}::${this.senderFeedOwner}`, envelope);
+    return { pss: true, feedRef: 'feed:1' };
+  }
+  async receive(topic, opts) {
+    if (!opts.feedOwner) return []; // no owner ⇒ no feed read (PSS-only)
+    const hit = this.feeds.get(`${topic}::${opts.feedOwner.toLowerCase()}`);
+    return hit ? [hit] : [];
+  }
+}
+
+test('offline hand-off: seller reads the address from the BUYER-owned feed', async () => {
+  const f = fixture();
+  // The buyer signs the feed with their ECIES key, so the feed owner is the
+  // address derived from that keypair.
+  const transport = new FeedTransport(addressFromPublicKey(f.buyerEcies.publicKey));
+
+  await sendShippingAddress({
+    orderId: f.orderId,
+    buyer: f.buyer.address,
+    seller: f.seller.address,
+    sellerPublicKey: f.sellerEcies.publicKey,
+    address: { name: 'Ada Lovelace', address: '1 Analytical Engine Way' },
+    signMessage: f.buyer.sign,
+    transport,
+  });
+
+  // Without the sender's public key there is no feed to point at — the seller
+  // finds nothing, which is exactly the bug this wiring fixes.
+  const blind = await receiveShippingAddress({
+    orderId: f.orderId,
+    buyer: f.buyer.address,
+    seller: f.seller.address,
+    recipientPrivateKey: f.sellerEcies.privateKey,
+    transport,
+  });
+  assert.equal(blind.decrypted, false, 'no feedOwner ⇒ nothing found');
+
+  // With it, the seller locates the buyer's feed and decrypts.
+  const got = await receiveShippingAddress({
+    orderId: f.orderId,
+    buyer: f.buyer.address,
+    seller: f.seller.address,
+    recipientPrivateKey: f.sellerEcies.privateKey,
+    senderPublicKey: f.buyerEcies.publicKey,
+    transport,
+  });
+  assert.equal(got.decrypted, true);
+  assert.equal(got.address.name, 'Ada Lovelace');
+});
+
+test('offline hand-off: buyer reads tracking from the SELLER-owned feed', async () => {
+  const f = fixture();
+  const transport = new FeedTransport(addressFromPublicKey(f.sellerEcies.publicKey));
+
+  await sendShipmentUpdate({
+    orderId: f.orderId,
+    buyer: f.buyer.address,
+    seller: f.seller.address,
+    buyerPublicKey: f.buyerEcies.publicKey,
+    update: { carrier: 'DHL', trackingCode: 'JD014600003651' },
+    signMessage: f.seller.sign,
+    transport,
+  });
+
+  const got = await receiveShipmentUpdate({
+    orderId: f.orderId,
+    buyer: f.buyer.address,
+    seller: f.seller.address,
+    recipientPrivateKey: f.buyerEcies.privateKey,
+    senderPublicKey: f.sellerEcies.publicKey,
+    transport,
+  });
+  assert.equal(got.decrypted, true);
+  assert.equal(got.update.trackingCode, 'JD014600003651');
+
+  // A reader pointed at the WRONG feed owner (here: its own) finds nothing.
+  const wrongFeed = await receiveShipmentUpdate({
+    orderId: f.orderId,
+    buyer: f.buyer.address,
+    seller: f.seller.address,
+    recipientPrivateKey: f.buyerEcies.privateKey,
+    senderPublicKey: f.buyerEcies.publicKey,
+    transport,
+  });
+  assert.equal(wrongFeed.decrypted, false);
 });
