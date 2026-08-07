@@ -369,9 +369,11 @@ function HandleClaim() {
   const [txHash, setTxHash] = useState(null);
   const [actionError, setActionError] = useState(null);
 
-  // Prefill the input with the current handle once it loads.
+  // Mirror the on-chain handle into the input — including when it becomes empty
+  // after a release, so the field doesn't keep showing the handle we just freed
+  // (which would also flip `unchanged` false and re-enable "Claim handle").
   useEffect(() => {
-    if (currentHandle) setInput(currentHandle);
+    setInput(currentHandle || '');
   }, [currentHandle]);
 
   const notConfigured = !HANDLE_REGISTRY_ADDRESS;

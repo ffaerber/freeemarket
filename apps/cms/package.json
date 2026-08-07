@@ -5,7 +5,9 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
+    "predev": "npm --prefix ../../packages/schema run build && npm --prefix ../../packages/messaging run build",
     "dev": "vite",
+    "prebuild": "npm --prefix ../../packages/schema run build && npm --prefix ../../packages/messaging run build",
     "build": "vite build",
     "preview": "vite preview"
   },

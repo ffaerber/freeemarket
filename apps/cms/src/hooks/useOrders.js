@@ -19,7 +19,7 @@ import { useAccount, usePublicClient } from 'wagmi';
 import { formatUnits, getAddress } from 'viem';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { erc20Abi } from '../abi/erc20.js';
-import { MARKETPLACE_ADDRESS, GNOSIS_CHAIN_ID } from '../config.js';
+import { MARKETPLACE_ADDRESS, GNOSIS_CHAIN_ID, FROM_BLOCK } from '../config.js';
 
 const tokenMetaCache = new Map();
 
@@ -70,7 +70,7 @@ async function loadOrders(client, seller) {
     address: MARKETPLACE_ADDRESS,
     abi: marketplaceAbi,
     eventName: 'OrderFunded',
-    fromBlock: 0n,
+    fromBlock: FROM_BLOCK,
     toBlock: 'latest',
   });
 
@@ -126,7 +126,7 @@ export function useOrders() {
   const { address } = useAccount();
 
   const query = useQuery({
-    queryKey: ['cms', 'orders', MARKETPLACE_ADDRESS, address],
+    queryKey: ['cms', 'orders', MARKETPLACE_ADDRESS, address, FROM_BLOCK.toString()],
     enabled: Boolean(client && MARKETPLACE_ADDRESS && address),
     queryFn: () => loadOrders(client, address),
     staleTime: 15 * 1000,

@@ -92,3 +92,67 @@ jobs:
 
       - name: Test
         run: npm test
+
+  scripts:
+    name: Ops scripts (deploy pipeline)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: scripts/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      # Covers the pure helpers in deploy-frontend.mjs — notably the EIP-1577
+      # swarm contenthash encoder, whose output is what gets written to mainnet
+      # ENS. Cheap to run, expensive to get wrong.
+      - name: Test
+        run: npm test
+
+  apps:
+    name: App build (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [storefront, cms]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/${{ matrix.app }}/package-lock.json
+
+      # The apps consume packages/* as `file:` deps that resolve through their
+      # package.json `exports` to a gitignored dist/. Without this the app
+      # cannot even resolve its imports ("Failed to resolve entry for package
+      # @freeemarket/schema"). Each package's `prepare` builds its dist/ as part
+      # of `npm ci`, so installing them is enough.
+      - name: Install workspace packages
+        run: npm ci
+        working-directory: packages/schema
+
+      - name: Install workspace packages (messaging)
+        run: npm ci
+        working-directory: packages/messaging
+
+      - name: Install
+        run: npm ci
+        working-directory: apps/${{ matrix.app }}
+
+      # Catches what the package-only jobs cannot: that the apps actually
+      # compile against the packages and bundle. This is the job that would
+      # have caught the clean-checkout build failure.
+      - name: Build
+        run: npm run build
+        working-directory: apps/${{ matrix.app }}

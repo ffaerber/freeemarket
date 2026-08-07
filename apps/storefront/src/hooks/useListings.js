@@ -26,6 +26,7 @@ import {
   MARKETPLACE_ADDRESS,
   BEE_URL,
   GNOSIS_CHAIN_ID,
+  FROM_BLOCK,
 } from '../config.js';
 
 /** Read decimals+symbol for a token, with graceful fallbacks. */
@@ -68,7 +69,7 @@ async function loadListings(client, sellerAddress) {
     abi: marketplaceAbi,
     eventName: 'ListingCreated',
     args: { seller },
-    fromBlock: 0n,
+    fromBlock: FROM_BLOCK,
     toBlock: 'latest',
   });
 
@@ -174,10 +175,27 @@ export function groupListings(listings) {
     groups.get(key).push(l);
   }
   return [...groups.entries()].map(([key, variants]) => {
-    // Cheapest variant first; ties keep stable id order.
+    // Each listing picks its OWN settlement token, so two variants sharing a
+    // productId may be priced in different tokens with different decimals.
+    // Comparing raw smallest-unit prices across those is meaningless (1 USDC =
+    // 1e6, 1 WXDAI = 1e18), so sort on the DECIMAL-NORMALIZED value and let the
+    // caller know whether the group is single-token before showing a range.
+    const tokens = new Set(variants.map((v) => (v.token || '').toLowerCase()));
+    const sameToken = tokens.size <= 1;
     const sorted = [...variants].sort((a, b) => {
-      if (a.price === b.price) return Number(a.id - b.id);
-      return a.price < b.price ? -1 : 1;
+      if (sameToken) {
+        // Common case: one token, so the raw bigints are directly comparable
+        // and exact — no float rounding on 18-decimal amounts.
+        if (a.price === b.price) return Number(a.id - b.id);
+        return a.price < b.price ? -1 : 1;
+      }
+      // Mixed tokens: only the decimal-normalized values are comparable.
+      const pa = Number(a.priceFormatted);
+      const pb = Number(b.priceFormatted);
+      if (!Number.isFinite(pa) || !Number.isFinite(pb) || pa === pb) {
+        return Number(a.id - b.id);
+      }
+      return pa < pb ? -1 : 1;
     });
     const first = sorted[0];
     // Group title: explicit variantOf wins, else the first variant's title.
@@ -187,6 +205,9 @@ export function groupListings(listings) {
       productId: first.productId || '',
       title,
       variants: sorted,
+      // False when variants settle in different tokens — a "lo–hi SYMBOL" range
+      // would then be nonsense, so the card shows the lead price instead.
+      sameToken,
     };
   });
 }
@@ -195,7 +216,7 @@ export function useListings(seller) {
   const client = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
 
   const query = useQuery({
-    queryKey: ['listings', MARKETPLACE_ADDRESS, seller, BEE_URL],
+    queryKey: ['listings', MARKETPLACE_ADDRESS, seller, BEE_URL, FROM_BLOCK.toString()],
     enabled: Boolean(client && MARKETPLACE_ADDRESS && seller),
     queryFn: () => loadListings(client, seller),
     staleTime: 60 * 1000,
