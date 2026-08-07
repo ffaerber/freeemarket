@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
+import {Vm} from "forge-std/Vm.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -40,9 +41,9 @@ contract MarketplaceTest is Test {
     event StockChanged(uint256 indexed id, uint256 newStock);
     event OrderFunded(
         uint256 indexed orderId,
-        uint256 indexed listingId,
+        uint256 listingId,
         address indexed buyer,
-        address seller,
+        address indexed seller,
         address token,
         uint256 amount
     );
@@ -322,6 +323,39 @@ contract MarketplaceTest is Test {
     }
 
     // --- buy / escrow ---
+
+    /// @notice OrderFunded must index `seller` so a merchant client can filter
+    ///         its own orders at the RPC instead of downloading every order on
+    ///         the marketplace and filtering locally. Asserts the exact topic
+    ///         layout (orderId, buyer, seller) rather than just "3 topics", so
+    ///         re-indexing a different field fails here.
+    function test_buy_orderFundedIndexesSellerForFiltering() public {
+        uint256 id = _listing(PRICE);
+
+        vm.startPrank(buyer);
+        usdc.approve(address(market), PRICE);
+        vm.recordLogs();
+        market.buy(id);
+        vm.stopPrank();
+
+        bytes32 sig = keccak256("OrderFunded(uint256,uint256,address,address,address,uint256)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bool found;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].emitter != address(market) || logs[i].topics[0] != sig) continue;
+            found = true;
+            // topic0 = signature, then the three indexed params in order.
+            assertEq(logs[i].topics.length, 4, "OrderFunded must have 3 indexed params");
+            assertEq(uint256(logs[i].topics[1]), 1, "topic1 = orderId");
+            assertEq(address(uint160(uint256(logs[i].topics[2]))), buyer, "topic2 = buyer");
+            assertEq(address(uint160(uint256(logs[i].topics[3]))), seller, "topic3 = seller");
+            // listingId moved into the data blob (nothing filters on it).
+            (uint256 loggedListingId,,) = abi.decode(logs[i].data, (uint256, address, uint256));
+            assertEq(loggedListingId, id, "listingId travels in data");
+        }
+        assertTrue(found, "OrderFunded not emitted");
+    }
 
     function test_buy_escrowsFundsAndEmits() public {
         uint256 id = _listing(PRICE);

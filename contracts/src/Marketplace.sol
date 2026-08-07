@@ -158,11 +158,19 @@ contract Marketplace is ReentrancyGuard, Ownable2Step, Pausable {
     /// @notice Emitted whenever a listing's remaining `stock` changes (on buy and on update),
     ///         so storefronts/indexers can track inventory cheaply without re-reading the listing.
     event StockChanged(uint256 indexed id, uint256 newStock);
+    /// @notice Emitted when a buyer funds escrow for a listing.
+    /// @dev A non-anonymous event can index at most THREE parameters, so the
+    ///      three slots go to the addresses clients actually filter on:
+    ///      `orderId` (look up one order), `buyer` (a buyer's own orders) and
+    ///      `seller` (a merchant's inbound orders — the CMS order dashboard).
+    ///      `listingId` is deliberately NOT indexed: nothing filters by it, and
+    ///      leaving `seller` unindexed forced every merchant client to download
+    ///      every order on the marketplace and filter locally.
     event OrderFunded(
         uint256 indexed orderId,
-        uint256 indexed listingId,
+        uint256 listingId,
         address indexed buyer,
-        address seller,
+        address indexed seller,
         address token,
         uint256 amount
     );

@@ -114,8 +114,11 @@ export default function Checkout({ shop, item, onClose }) {
   const shippingPolicy = shop.shipping;
   const shippable = country ? canShipTo(shippingPolicy, country) : true;
 
-  // Buyer-side tracking read (seller→buyer). The buyer's ECIES private key is
-  // unlocked LOCALLY here — held only in React state, never persisted or sent.
+  // The buyer's ECIES private key, unlocked LOCALLY — held only in React state,
+  // never persisted or sent. It does double duty: it SIGNS the store-and-forward
+  // feed carrying the shipping address (so a seller who wasn't online at
+  // checkout can still read it), and it DECRYPTS the seller's tracking reply.
+  // Same key either way, so the buyer only ever enters it once.
   const [trackKey, setTrackKey] = useState('');
   const [trackBusy, setTrackBusy] = useState(false);
   const [trackResult, setTrackResult] = useState(null);
@@ -236,6 +239,10 @@ export default function Checkout({ shop, item, onClose }) {
         address: { name, address: shipTo, country },
         publicClient,
         signMessage,
+        // Optional: signs the buyer-owned feed so delivery survives an offline
+        // seller. Without it the address goes out over PSS only, which has no
+        // replay — the seller must happen to be listening.
+        feedPrivateKey: trackKey.trim() || undefined,
         beeUrl: BEE_URL,
         postageBatchId: POSTAGE_BATCH_ID,
       });
@@ -257,6 +264,9 @@ export default function Checkout({ shop, item, onClose }) {
         buyer: address,
         seller: shop.seller,
         recipientPrivateKey: trackKey.trim() || undefined,
+        // Resolves the seller's ECIES key so we can read the seller-owned
+        // store-and-forward feed, not just catch a live PSS push.
+        publicClient,
         beeUrl: BEE_URL,
       });
       setTrackResult(result);
@@ -414,6 +424,30 @@ export default function Checkout({ shop, item, onClose }) {
             {shippingPolicy && shippingPolicy.note && (
               <div style={{ color: 'var(--muted)', fontSize: 12.5, marginBottom: 12 }}>{shippingPolicy.note}</div>
             )}
+
+            {/* Optional ECIES key. Signing a buyer-owned Swarm feed is what
+                lets an OFFLINE seller read the address later — PSS alone is a
+                live push with no replay. Same key later decrypts the seller's
+                tracking reply, so it's asked for once. */}
+            <details style={{ marginBottom: 12 }}>
+              <summary style={{ cursor: 'pointer', fontSize: 12.5, color: 'var(--muted)' }}>
+                Offline delivery key (optional)
+              </summary>
+              <div style={{ color: 'var(--muted)', fontSize: 12, lineHeight: 1.5, margin: '8px 0' }}>
+                Without this the address is pushed over PSS only, which the shop
+                receives just if their node is listening right now. Adding your ECIES
+                private key signs a Swarm feed they can read any time — and unlocks
+                the tracking code later. Held locally, never sent or stored.
+              </div>
+              <input
+                type="password"
+                placeholder="Your ECIES private key (0x…) — local only"
+                value={trackKey}
+                onChange={(e) => setTrackKey(e.target.value)}
+                autoComplete="off"
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'ui-monospace, monospace', fontSize: 12 }}
+              />
+            </details>
 
             <PrimaryButton onClick={doSendAddress} disabled={busy || !name || !shipTo || !country || !shippable}>
               {busy ? 'Encrypting & sending…' : 'Send encrypted address'} <ArrowRight size={17} />

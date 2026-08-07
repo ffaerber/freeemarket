@@ -60,6 +60,7 @@ export function makeSignDigest(walletClient, account) {
  * @param {string} args.seller  the connected merchant (recipient — reads own mailbox).
  * @param {string} args.buyer   expected sender (order.buyer) to verify against.
  * @param {string} [args.recipientPrivateKey]  seller's ECIES private key (local keystore only).
+ * @param {import('viem').PublicClient} [args.publicClient]  to resolve the buyer's key for the feed read.
  * @param {string} args.beeUrl
  * @param {string} [args.postageBatchId]  not strictly needed for receive.
  * @returns {Promise<{ decrypted: boolean, stub: boolean, address: object|null, rejected?: number }>}
@@ -69,6 +70,7 @@ export async function receiveDecryptedAddress({
   seller,
   buyer,
   recipientPrivateKey,
+  publicClient,
   beeUrl,
   postageBatchId,
 }) {
@@ -95,18 +97,26 @@ export async function receiveDecryptedAddress({
     return { decrypted: false, stub: true, address: null };
   }
 
-  // BeeTransport built ONLY behind the config gate. `feedOwner` = seller so the
-  // store-and-forward read targets the merchant's own recipient feed.
+  // The BUYER writes the store-and-forward feed (only the sender holds the
+  // message), so we read THEIR feed. Its owner address is derived from the
+  // buyer's ECIES public key, which we resolve from the same ContactRegistry
+  // used for encryption — no extra key to publish. Unresolvable ⇒ the live PSS
+  // path only, which still works if the merchant happened to be listening.
+  const buyerPublicKey = publicClient
+    ? await resolvePublicKey(publicClient, CONTACT_REGISTRY, buyer)
+    : null;
+
+  // BeeTransport built ONLY behind the config gate.
   const transport = new BeeTransport({
     beeUrl,
     postageBatchId: postageBatchId || '',
-    feedOwner: seller,
   });
   const result = await receiveShippingAddress({
     orderId: `${orderId}`,
     buyer,
     seller,
     recipientPrivateKey,
+    senderPublicKey: buyerPublicKey || undefined,
     transport,
   });
   return {
@@ -129,6 +139,9 @@ export async function receiveDecryptedAddress({
  * @param {string} [args.buyerPublicKey]  buyer ECIES key, if already resolved.
  * @param {import('viem').PublicClient} [args.publicClient]  for ContactRegistry lookup.
  * @param {(digestHex: string) => Promise<string>} [args.signMessage]  seller's EIP-191 signer.
+ * @param {string} [args.feedPrivateKey]  seller's ECIES private key, used to SIGN the
+ *   store-and-forward feed so an offline buyer can still read the tracking code.
+ *   Local-only, same custody rules as the decryption key. Omit ⇒ PSS-only send.
  * @param {string} args.beeUrl
  * @param {string} [args.postageBatchId]  postage batch stamping the PSS upload.
  * @returns {Promise<{ delivered: boolean, stub: boolean, topic?: string }>}
@@ -141,6 +154,7 @@ export async function sendShipmentUpdateFromCms({
   buyerPublicKey,
   publicClient,
   signMessage,
+  feedPrivateKey,
   beeUrl,
   postageBatchId,
 }) {
@@ -178,7 +192,13 @@ export async function sendShipmentUpdateFromCms({
     return { delivered: false, stub: true };
   }
 
-  const transport = new BeeTransport({ beeUrl, postageBatchId });
+  // feedSigner makes `send` ALSO write the feed, which is the only path that
+  // survives an offline buyer. Without it the tracking code is PSS-only.
+  const transport = new BeeTransport({
+    beeUrl,
+    postageBatchId,
+    feedSigner: feedPrivateKey || undefined,
+  });
   const result = await sendShipmentUpdate({
     orderId: `${orderId}`,
     buyer,

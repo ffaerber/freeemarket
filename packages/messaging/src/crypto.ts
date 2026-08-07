@@ -13,8 +13,13 @@
  * run locally precisely so the merchant private key + decrypted plaintext never
  * leave the merchant's machine.
  */
-import { PrivateKey, encrypt as eciesEncrypt, decrypt as eciesDecrypt } from 'eciesjs';
-import { bytesToHex, hexToBytes, type Hex } from 'viem';
+import {
+  PrivateKey,
+  PublicKey,
+  encrypt as eciesEncrypt,
+  decrypt as eciesDecrypt,
+} from 'eciesjs';
+import { bytesToHex, hexToBytes, keccak256, type Hex } from 'viem';
 
 /** A standalone ECIES (secp256k1) keypair, hex-encoded with `0x` prefix. */
 export interface KeyPair {
@@ -42,6 +47,47 @@ export function generateKeyPair(): KeyPair {
 export function publicKeyFromPrivate(privateKey: Hex): Hex {
   const sk = new PrivateKey(hexToBytes(privateKey));
   return bytesToHex(sk.publicKey.toBytes(false));
+}
+
+/**
+ * Ethereum-style address derived from an ECIES public key.
+ *
+ * This is what closes the store-and-forward loop (CLAUDE.md §5). A Swarm feed
+ * is owned by an Ethereum address, and the SENDER writes the feed (the
+ * recipient can't — they don't have the message). So the reader needs the
+ * sender's feed-owner address. It cannot be the sender's WALLET address: a
+ * browser wallet never exports the private key `makeFeedWriter` requires.
+ *
+ * Instead both sides key off the ECIES keypair that already exists for this
+ * flow: the sender signs the feed with their ECIES private key, and the reader
+ * derives the same address from the sender's ECIES PUBLIC key — which it has
+ * already fetched from the ContactRegistry to do encryption. No new registry
+ * field, no extra key to publish.
+ *
+ * ECIES keys are secp256k1, same as Ethereum keys, so the derivation is the
+ * standard one: keccak256 of the 64-byte uncompressed public key (0x04 prefix
+ * stripped), last 20 bytes.
+ *
+ * NOTE ON KEY REUSE: this uses one keypair for both encryption and feed
+ * signing, which is a deliberate trade of strict key separation for not having
+ * to publish and discover a second key. The feed signature only authenticates
+ * feed chunks the sender authored; message authenticity is carried
+ * independently by the signed envelope (which the WALLET signs), so a feed
+ * forgery cannot impersonate a counterparty — `openEnvelope` still rejects it.
+ */
+export function addressFromPublicKey(publicKey: Hex): Hex {
+  let bytes = hexToBytes(publicKey);
+  // Accept compressed (33 bytes) by normalizing through eciesjs first.
+  if (bytes.length === 33) {
+    bytes = PublicKey.fromHex(bytesToHex(bytes).slice(2)).toBytes(false);
+  }
+  if (bytes.length === 65) bytes = bytes.slice(1); // drop the 0x04 prefix
+  if (bytes.length !== 64) {
+    throw new Error(
+      `addressFromPublicKey: expected a 33/64/65-byte secp256k1 key, got ${bytes.length}`,
+    );
+  }
+  return `0x${keccak256(bytesToHex(bytes)).slice(-40)}` as Hex;
 }
 
 /**

@@ -3,9 +3,10 @@
  *
  * Pipeline:
  *   1. getContractEvents `OrderFunded(orderId, listingId, buyer, seller, …)`
- *      filtered by `seller == connected address`. (`seller` is NOT indexed in
- *      the event, so we filter client-side after fetching all OrderFunded logs;
- *      buyer/orderId/listingId are indexed.)
+ *      filtered by `seller == connected address`. `seller` is an INDEXED event
+ *      param, so this is an RPC-side topic filter — the merchant downloads only
+ *      their own orders. (Indexed: orderId, buyer, seller. `listingId` rides in
+ *      the data blob; nothing filters on it.)
  *   2. For each orderId, read CURRENT `orders(orderId)` state (the event only
  *      captures the funded snapshot; state changes as the order progresses).
  *   3. Read token decimals/symbol (NEVER hardcoded) to format the amount.
@@ -65,21 +66,19 @@ async function loadOrders(client, seller) {
     console.warn('[cms:orders] failed reading autoReleasePeriod:', err);
   }
 
-  // OrderFunded logs. `seller` isn't indexed → fetch all, filter client-side.
+  // OrderFunded logs for THIS seller. `seller` is an indexed event param, so
+  // the RPC does the filtering and we only download our own orders.
   const logs = await client.getContractEvents({
     address: MARKETPLACE_ADDRESS,
     abi: marketplaceAbi,
     eventName: 'OrderFunded',
+    args: { seller: me },
     fromBlock: FROM_BLOCK,
     toBlock: 'latest',
   });
 
-  const mine = logs.filter(
-    (l) => l.args?.seller && getAddress(l.args.seller) === me,
-  );
-
   const orders = await Promise.all(
-    mine.map(async (log) => {
+    logs.map(async (log) => {
       const orderId = log.args.orderId;
       let order;
       try {
