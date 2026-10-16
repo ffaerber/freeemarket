@@ -39,6 +39,12 @@ export const RPC_URL = envOr('VITE_RPC_URL', 'https://rpc.gnosischain.com');
 // Default to the buyer's LOCAL Bee node (not the public gateway) — reads,
 // the swarm-connect health/stamp checks, and PSS all expect a full node.
 export const BEE_URL = envOr('VITE_BEE_URL', 'http://localhost:1633');
+/**
+ * Public gateway for READS while the user has no running Bee node, so a
+ * visitor without one still sees shops, listings and images. Once a node is
+ * connected (swarm-connect), reads switch to it. Writes and PSS never use this.
+ */
+export const GATEWAY_URL = envOr('VITE_GATEWAY_URL', 'https://api.gateway.ethswarm.org');
 export const SHOP_METADATA = envOr('VITE_SHOP_METADATA', '');
 
 /**

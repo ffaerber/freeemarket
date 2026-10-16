@@ -14,14 +14,15 @@ import { useQuery } from '@tanstack/react-query';
 import { useReadContract } from 'wagmi';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { fetchShopProfile } from '../lib/swarm.js';
+import { useSwarm } from '../swarm/SwarmContext.jsx';
 import {
   MARKETPLACE_ADDRESS,
   SHOP_METADATA,
-  BEE_URL,
   GNOSIS_CHAIN_ID,
 } from '../config.js';
 
 export function useShop(seller) {
+  const { read } = useSwarm();
   // 1. On-chain: shops(seller) -> (registered, metadata). Skipped if we have a
   //    metadata override or are missing config.
   const enabledOnChain =
@@ -42,9 +43,9 @@ export function useShop(seller) {
 
   // 2. Swarm: fetch + validate the ShopProfile JSON.
   const profileQuery = useQuery({
-    queryKey: ['shopProfile', BEE_URL, metadataRef],
+    queryKey: ['shopProfile', read.url, metadataRef],
     enabled: Boolean(metadataRef),
-    queryFn: () => fetchShopProfile(BEE_URL, metadataRef),
+    queryFn: () => fetchShopProfile(read, metadataRef),
     staleTime: 5 * 60 * 1000,
   });
 

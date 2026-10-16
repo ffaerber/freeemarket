@@ -10,6 +10,7 @@ import { createRoot } from 'react-dom/client';
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { wagmiConfig } from './wagmi.js';
+import { SwarmProvider } from './swarm/SwarmContext.jsx';
 import './design/identity.css';
 import './design/pages.css';
 import Storefront from './Storefront.jsx';
@@ -20,7 +21,9 @@ createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
-        <Storefront />
+        <SwarmProvider>
+          <Storefront />
+        </SwarmProvider>
       </QueryClientProvider>
     </WagmiProvider>
   </React.StrictMode>,

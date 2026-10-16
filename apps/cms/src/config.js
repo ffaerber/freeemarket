@@ -36,6 +36,12 @@ export const HANDLE_REGISTRY_ADDRESS = envOr('VITE_HANDLE_REGISTRY', '');
 export const RPC_URL = envOr('VITE_RPC_URL', 'https://rpc.gnosischain.com');
 /** Bee node base URL — used for reads AND writes (writes need a real node). */
 export const BEE_URL = envOr('VITE_BEE_URL', 'http://localhost:1633');
+/**
+ * Public gateway for READS while the user has no running Bee node, so a
+ * visitor without one still sees shops, listings and images. Once a node is
+ * connected (swarm-connect), reads switch to it. Writes and PSS never use this.
+ */
+export const GATEWAY_URL = envOr('VITE_GATEWAY_URL', 'https://api.gateway.ethswarm.org');
 /** Postage batch ("stamp") — required for any Swarm upload. */
 export const POSTAGE_BATCH_ID = envOr('VITE_POSTAGE_BATCH_ID', '');
 

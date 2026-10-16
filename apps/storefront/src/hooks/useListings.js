@@ -22,9 +22,9 @@ import { shippingFromPricing } from '@freeemarket/schema';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { erc20Abi } from '../abi/erc20.js';
 import { fetchListingMetadata } from '../lib/swarm.js';
+import { useSwarm } from '../swarm/SwarmContext.jsx';
 import {
   MARKETPLACE_ADDRESS,
-  BEE_URL,
   GNOSIS_CHAIN_ID,
   FROM_BLOCK,
 } from '../config.js';
@@ -58,7 +58,7 @@ async function readToken(client, token, hint) {
   return { decimals: resolvedDecimals, symbol: resolvedSymbol };
 }
 
-async function loadListings(client, sellerAddress) {
+async function loadListings(client, sellerAddress, read) {
   if (!client || !MARKETPLACE_ADDRESS || !sellerAddress) return [];
 
   const seller = getAddress(sellerAddress);
@@ -96,7 +96,7 @@ async function loadListings(client, sellerAddress) {
       if (!active) return null; // skip inactive (stock 0 is kept, shown "Sold out")
 
       // 4. Swarm metadata (validated). Fetch first so we have the payment hint.
-      const meta = await fetchListingMetadata(BEE_URL, metadataRef);
+      const meta = await fetchListingMetadata(read, metadataRef);
 
       // 3. Token decimals/symbol (never hardcoded).
       const { decimals, symbol } = await readToken(client, token, meta?.payment);
@@ -214,11 +214,12 @@ export function groupListings(listings) {
 
 export function useListings(seller) {
   const client = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
+  const { read } = useSwarm();
 
   const query = useQuery({
-    queryKey: ['listings', MARKETPLACE_ADDRESS, seller, BEE_URL, FROM_BLOCK.toString()],
+    queryKey: ['listings', MARKETPLACE_ADDRESS, seller, read.url, FROM_BLOCK.toString()],
     enabled: Boolean(client && MARKETPLACE_ADDRESS && seller),
-    queryFn: () => loadListings(client, seller),
+    queryFn: () => loadListings(client, seller, read),
     staleTime: 60 * 1000,
   });
 

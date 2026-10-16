@@ -24,13 +24,13 @@ import { useMyListings } from '../hooks/useMyListings.js';
 import { useShopProfile } from '../hooks/useShopProfile.js';
 import { useAcceptedToken } from '../hooks/useAcceptedToken.js';
 import { makeBee, uploadJson, uploadFile } from '../lib/swarmWrite.js';
-import { refToBytes32, swarmImageUrl } from '../lib/swarm.js';
+import { refToBytes32, swarmImagePath } from '../lib/swarm.js';
+import SwarmImage from '../swarm/SwarmImage.jsx';
 import { usePostageBatch } from '../hooks/usePostageBatch.js';
 import {
   MARKETPLACE_ADDRESS,
   GNOSIS_CHAIN_ID,
   EXPLORER_URL,
-  BEE_URL,
   TOKEN_OPTIONS,
 } from '../config.js';
 import {
@@ -402,7 +402,7 @@ function CreateListing({ disabled, onCreated, myListings = [] }) {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
             {images.map((ref) => (
               <div key={ref} style={{ position: 'relative' }}>
-                <img src={swarmImageUrl(BEE_URL, ref)} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
+                <SwarmImage path={swarmImagePath(ref)} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} boxStyle={{ width: 56, height: 56, borderRadius: 8, border: '1px solid var(--border)' }} />
                 <span
                   onClick={() => setImages((xs) => xs.filter((r) => r !== ref))}
                   style={{ position: 'absolute', top: -6, right: -6, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 999, width: 18, height: 18, display: 'grid', placeItems: 'center', cursor: 'pointer', fontSize: 10 }}
@@ -534,7 +534,7 @@ function ListingRow({ listing, onChanged }) {
     <Card style={{ padding: 16 }}>
       <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
         <div style={{ width: 56, height: 56, borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 22 }}>
-          {listing.images[0] ? <img src={swarmImageUrl(BEE_URL, listing.images[0])} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🛍️'}
+          {listing.images[0] ? <SwarmImage path={swarmImagePath(listing.images[0])} lazy style={{ width: '100%', height: '100%', objectFit: 'cover' }} boxStyle={{ width: '100%', height: '100%' }} /> : '🛍️'}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>

@@ -27,14 +27,14 @@ import { handleRegistryAbi } from '../abi/handleRegistry.js';
 import { useShopProfile } from '../hooks/useShopProfile.js';
 import { useMyHandle } from '../hooks/useMyHandle.js';
 import { makeBee, uploadJson, uploadFile } from '../lib/swarmWrite.js';
-import { refToBytes32, swarmImageUrl } from '../lib/swarm.js';
+import { refToBytes32, swarmImagePath } from '../lib/swarm.js';
+import SwarmImage from '../swarm/SwarmImage.jsx';
 import { usePostageBatch } from '../hooks/usePostageBatch.js';
 import {
   MARKETPLACE_ADDRESS,
   HANDLE_REGISTRY_ADDRESS,
   GNOSIS_CHAIN_ID,
   EXPLORER_URL,
-  BEE_URL,
 } from '../config.js';
 import {
   Card,
@@ -251,11 +251,11 @@ export default function ShopSection() {
 
           <Field label="Logo" hint="Paste a Swarm reference or upload an image to store one.">
             <Input value={form.logo} onChange={(e) => set('logo', e.target.value)} placeholder="Swarm reference (64 hex)" />
-            <ImageUpload disabled={!uploadsReady} onPick={(f) => uploadImage('logo', f)} preview={swarmImageUrl(BEE_URL, form.logo)} />
+            <ImageUpload disabled={!uploadsReady} onPick={(f) => uploadImage('logo', f)} preview={swarmImagePath(form.logo)} />
           </Field>
           <Field label="Banner" hint="Paste a Swarm reference or upload an image to store one.">
             <Input value={form.banner} onChange={(e) => set('banner', e.target.value)} placeholder="Swarm reference (64 hex)" />
-            <ImageUpload disabled={!uploadsReady} onPick={(f) => uploadImage('banner', f)} preview={swarmImageUrl(BEE_URL, form.banner)} />
+            <ImageUpload disabled={!uploadsReady} onPick={(f) => uploadImage('banner', f)} preview={swarmImagePath(form.banner)} />
           </Field>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
@@ -520,7 +520,7 @@ function ImageUpload({ onPick, preview, disabled }) {
         />
       </label>
       {preview && (
-        <img src={preview} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
+        <SwarmImage path={preview} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} boxStyle={{ width: 40, height: 40, borderRadius: 8, border: '1px solid var(--border)' }} />
       )}
     </div>
   );

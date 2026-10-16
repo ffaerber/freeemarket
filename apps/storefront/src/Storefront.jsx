@@ -21,8 +21,9 @@ import { useSellerRating } from './hooks/useSellerRating.js';
 import { Stars } from './ui/Stars.jsx';
 import Portal from './Portal.jsx';
 import { UtilityBar, Nav, MiniFooter } from './chrome.jsx';
-import { swarmImageUrl } from './lib/swarm.js';
-import { BEE_URL, STOREFRONT_HOST } from './config.js';
+import { swarmImagePath } from './lib/swarm.js';
+import SwarmImage from './swarm/SwarmImage.jsx';
+import { STOREFRONT_HOST } from './config.js';
 
 /** Emoji glyph fallback when a listing has no Swarm image. */
 function glyphFor(listing) {
@@ -40,15 +41,17 @@ function stockCount(item) {
   return item?.stockCount != null ? item.stockCount : item?.stock != null ? Number(item.stock) : null;
 }
 
-/** Product media — Swarm image with emoji fallback, in the design's .fm-media. */
+/**
+ * Product media in the design's .fm-media: the Swarm image (spinner while it
+ * loads, retries, tap-to-retry if it never arrives), or the emoji glyph for a
+ * listing without one.
+ */
 function ProductMedia({ listing, glyphSize }) {
-  const ref = listing.images?.[0];
-  const url = ref ? swarmImageUrl(BEE_URL, ref) : null;
-  const [errored, setErrored] = useState(false);
-  if (url && !errored) {
+  const path = swarmImagePath(listing.images?.[0]);
+  if (path) {
     return (
       <div className="fm-media">
-        <img src={url} alt={listing.title} onError={() => setErrored(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <SwarmImage path={path} alt={listing.title} lazy style={{ width: '100%', height: '100%', objectFit: 'cover' }} boxStyle={{ width: '100%', height: '100%' }} />
       </div>
     );
   }

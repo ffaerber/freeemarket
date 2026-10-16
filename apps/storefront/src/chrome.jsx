@@ -6,6 +6,7 @@
  */
 import React from 'react';
 import { SwarmConnectButton } from '@ffaerber/swarm-connect';
+import { useSwarm } from './swarm/SwarmContext.jsx';
 import { ADMIN_URL, MARKETPLACE_ADDRESS, BEE_URL } from './config.js';
 
 /** The freee·market wordmark — the "eee" in brand blue. */
@@ -25,12 +26,12 @@ const SearchIcon = (p) => (
 
 /**
  * Swarm connect wizard (wallet + Bee node + postage stamp) from
- * @ffaerber/swarm-connect. No hardcoded beeApiUrl — the package persists the node
- * URL the buyer sets in its modal (a passed prop would override it). Used in the
- * shop nav; the buyer needs a Bee node + stamp to send the address over PSS.
+ * @ffaerber/swarm-connect, on the app's shared instance (SwarmProvider) so that
+ * connecting a node here switches every read to it. Used in the shop nav; the
+ * buyer needs a Bee node + stamp to send the address over PSS.
  */
 export function WalletButton() {
-  return <SwarmConnectButton />;
+  return <SwarmConnectButton swarm={useSwarm()} />;
 }
 
 /** Thin machine utility bar above the nav. */

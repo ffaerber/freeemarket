@@ -10,13 +10,15 @@ import { useQuery } from '@tanstack/react-query';
 import { useAccount, useReadContract } from 'wagmi';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { fetchShopProfile } from '../lib/swarm.js';
-import { MARKETPLACE_ADDRESS, BEE_URL, GNOSIS_CHAIN_ID } from '../config.js';
+import { useSwarm } from '../swarm/SwarmContext.jsx';
+import { MARKETPLACE_ADDRESS, GNOSIS_CHAIN_ID } from '../config.js';
 
 export function useShopProfile() {
   const { address } = useAccount();
 
   const enabled = Boolean(MARKETPLACE_ADDRESS && address);
 
+  const { read } = useSwarm();
   const shopRead = useReadContract({
     abi: marketplaceAbi,
     address: MARKETPLACE_ADDRESS || undefined,
@@ -31,9 +33,9 @@ export function useShopProfile() {
   const metadataRef = shopRead.data ? shopRead.data[1] : '';
 
   const profileQuery = useQuery({
-    queryKey: ['cms', 'shopProfile', BEE_URL, metadataRef],
+    queryKey: ['cms', 'shopProfile', read.url, metadataRef],
     enabled: Boolean(metadataRef),
-    queryFn: () => fetchShopProfile(BEE_URL, metadataRef),
+    queryFn: () => fetchShopProfile(read, metadataRef),
     staleTime: 60 * 1000,
   });
 

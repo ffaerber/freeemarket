@@ -18,7 +18,8 @@ import { formatUnits } from 'viem';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { erc20Abi } from '../abi/erc20.js';
 import { fetchListingMetadata } from '../lib/swarm.js';
-import { MARKETPLACE_ADDRESS, BEE_URL, GNOSIS_CHAIN_ID, FROM_BLOCK } from '../config.js';
+import { useSwarm } from '../swarm/SwarmContext.jsx';
+import { MARKETPLACE_ADDRESS, GNOSIS_CHAIN_ID, FROM_BLOCK } from '../config.js';
 
 async function readToken(client, token, hint) {
   let decimals;
@@ -39,7 +40,7 @@ async function readToken(client, token, hint) {
   return { decimals: resolvedDecimals, symbol: resolvedSymbol };
 }
 
-async function loadMyListings(client, seller) {
+async function loadMyListings(client, seller, read) {
   if (!client || !MARKETPLACE_ADDRESS || !seller) return [];
 
   const logs = await client.getContractEvents({
@@ -70,7 +71,7 @@ async function loadMyListings(client, seller) {
       // listings() → [seller, token, price, stock, metadata, active]
       const [, token, price, stock, metadataRef, active] = listing;
 
-      const meta = await fetchListingMetadata(BEE_URL, metadataRef);
+      const meta = await fetchListingMetadata(read, metadataRef);
       const { decimals, symbol } = await readToken(client, token, meta?.payment);
 
       return {
@@ -112,11 +113,12 @@ async function loadMyListings(client, seller) {
 export function useMyListings() {
   const client = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
   const { address } = useAccount();
+  const { read } = useSwarm();
 
   const query = useQuery({
-    queryKey: ['cms', 'myListings', MARKETPLACE_ADDRESS, address, BEE_URL, FROM_BLOCK.toString()],
+    queryKey: ['cms', 'myListings', MARKETPLACE_ADDRESS, address, read.url, FROM_BLOCK.toString()],
     enabled: Boolean(client && MARKETPLACE_ADDRESS && address),
-    queryFn: () => loadMyListings(client, address),
+    queryFn: () => loadMyListings(client, address, read),
     staleTime: 30 * 1000,
   });
 

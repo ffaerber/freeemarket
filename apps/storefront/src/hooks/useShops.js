@@ -19,15 +19,15 @@ import { getAddress, zeroAddress } from 'viem';
 import { handleRegistryAbi } from '../abi/handleRegistry.js';
 import { marketplaceAbi } from '../abi/marketplace.js';
 import { fetchShopProfile } from '../lib/swarm.js';
+import { useSwarm } from '../swarm/SwarmContext.jsx';
 import {
   HANDLE_REGISTRY,
   MARKETPLACE_ADDRESS,
-  BEE_URL,
   GNOSIS_CHAIN_ID,
   FROM_BLOCK,
 } from '../config.js';
 
-async function loadShops(client) {
+async function loadShops(client, read) {
   if (!client || !HANDLE_REGISTRY) return [];
 
   // 1. All HandleClaimed events (handle plaintext is in the data).
@@ -70,7 +70,7 @@ async function loadShops(client) {
           });
           const metadataRef = shop?.[1];
           if (metadataRef) {
-            const profile = await fetchShopProfile(BEE_URL, metadataRef);
+            const profile = await fetchShopProfile(read, metadataRef);
             if (profile?.name) name = profile.name;
           }
         } catch {
@@ -87,11 +87,12 @@ async function loadShops(client) {
 
 export function useShops() {
   const client = usePublicClient({ chainId: GNOSIS_CHAIN_ID });
+  const { read } = useSwarm();
 
   const query = useQuery({
-    queryKey: ['shops', HANDLE_REGISTRY, MARKETPLACE_ADDRESS, BEE_URL, FROM_BLOCK.toString()],
+    queryKey: ['shops', HANDLE_REGISTRY, MARKETPLACE_ADDRESS, read.url, FROM_BLOCK.toString()],
     enabled: Boolean(client && HANDLE_REGISTRY),
-    queryFn: () => loadShops(client),
+    queryFn: () => loadShops(client, read),
     staleTime: 60 * 1000,
   });
 

@@ -13,6 +13,7 @@ import React, { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { LayoutGrid, Package, Inbox, Store, ExternalLink } from 'lucide-react';
 import { SwarmConnectButton, useBeeNode } from '@ffaerber/swarm-connect';
+import { useSwarm } from './swarm/SwarmContext.jsx';
 import Dashboard from './sections/Dashboard.jsx';
 import ShopSection from './sections/ShopSection.jsx';
 import ListingsSection from './sections/ListingsSection.jsx';
@@ -43,17 +44,14 @@ function Wordmark() {
 }
 
 /**
- * Swarm connect wizard (wallet + Bee node + postage stamp). NO beeApiUrl prop:
- * the package resolves `prop ?? localStorage ?? default`, so a prop would
- * override AND overwrite the URL the user set. Instead the modal + the sidebar
- * "Bee node" field both write the same localStorage key (see useBeeUrl), which
- * usePostageBatch + the node-health check read.
+ * Swarm connect wizard (wallet + Bee node + postage stamp), on the app's shared
+ * swarm-connect instance (SwarmProvider): the modal and the sidebar "Bee node"
+ * field (useBeeUrl) change the same state, and reads follow it. Default
+ * requirements: wallet xDAI + select an existing postage stamp (no node-wallet
+ * funding step); requirements are set in SwarmProvider.
  */
 function SwarmConnect() {
-  // Default 0.5.0 requirements: wallet xDAI + select an existing postage stamp
-  // (no node-wallet funding step). To let the merchant BUY a stamp in the modal,
-  // pass requirements={{ xbzz: true }}.
-  return <SwarmConnectButton />;
+  return <SwarmConnectButton swarm={useSwarm()} />;
 }
 
 /** Labelled Bee-node URL input (sidebar + onboarding). Writes via useBeeUrl. */
